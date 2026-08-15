@@ -8,6 +8,7 @@ import {
 import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import VerifiedBadge from '../../components/organizer/VerifiedBadge.jsx';
+import EmptyState from '../../components/common/EmptyState.jsx';
 import { SectionSkeleton } from '../../components/common/Skeleton.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { organizerService } from '../../services/organizerService.js';
@@ -73,19 +74,24 @@ export default function OrganizerDashboardPage() {
       ? rejectedEvents
       : metrics.events;
 
+  // Needs Attention Items
+  const needsAttentionEvents = metrics.events.filter(
+    (e) => e.status === 'pending_review' || e.status === 'changes_requested' || e.status === 'draft'
+  );
+
   return (
     <div className="kas-container py-8 lg:py-12 space-y-8 max-w-6xl">
-      {/* ── Dashboard Header ── */}
+      {/* ── 1. Dashboard Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 pb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl sm:text-3xl font-800 text-neutral-900 tracking-tight">
-              Organizer Dashboard
+              Organizer Operations Dashboard
             </h1>
             <VerifiedBadge size="sm" />
           </div>
           <p className="text-sm text-neutral-500">
-            Manage your sports tournaments, athlete registrations, check-in passes, and revenue.
+            Real-time tournament analytics, athlete registration progress, check-in operations, and captured revenues.
           </p>
         </div>
 
@@ -100,7 +106,7 @@ export default function OrganizerDashboardPage() {
         </Button>
       </div>
 
-      {/* ── Operational Metrics Cards ── */}
+      {/* ── 2. Operational KPI Cards ── */}
       {loading ? (
         <SectionSkeleton count={4} />
       ) : (
@@ -130,7 +136,42 @@ export default function OrganizerDashboardPage() {
         </div>
       )}
 
-      {/* ── Tournament Events Management List & Tabs ── */}
+      {/* ── 3. Needs Attention Section ── */}
+      {!loading && needsAttentionEvents.length > 0 && (
+        <div className="bg-amber-50 rounded-[16px] border border-amber-200 p-5 space-y-3 shadow-xs">
+          <div className="flex items-center gap-2 text-amber-900 font-800 text-xs uppercase tracking-wider">
+            <AlertCircle size={16} className="text-amber-600" />
+            <span>NEEDS YOUR ATTENTION ({needsAttentionEvents.length})</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-neutral-800">
+            {needsAttentionEvents.map((evt) => (
+              <div key={evt.id} className="bg-white p-3.5 rounded-[10px] border border-amber-200 flex items-center justify-between">
+                <div>
+                  <span className="font-800 text-neutral-900 block">{evt.title}</span>
+                  <span className="text-neutral-500 text-[11px] capitalize">
+                    {evt.status === 'pending_review'
+                      ? 'Awaiting Admin Approval'
+                      : evt.status === 'draft'
+                      ? 'Draft — Ready for Submission'
+                      : 'Changes Requested'}
+                  </span>
+                </div>
+
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => navigate(`/organizer/events/${evt.id}/edit`)}
+                >
+                  Edit
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 4. Tournament Events Management List & Tabs ── */}
       <div className="bg-white rounded-[20px] border border-neutral-200 p-6 space-y-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-4">
           <h2 className="font-800 text-neutral-900 text-lg">My Sports Tournaments</h2>
@@ -149,7 +190,7 @@ export default function OrganizerDashboardPage() {
                 onClick={() => setTab(t.id)}
                 className={`py-1.5 px-3 rounded-[8px] text-xs font-700 whitespace-nowrap transition-colors ${
                   tab === t.id
-                    ? 'bg-amber-50 text-amber-900 border border-amber-300'
+                    ? 'bg-amber-50 text-amber-900 border border-amber-300 font-800'
                     : 'text-neutral-500 hover:text-neutral-900 bg-neutral-50'
                 }`}
               >
@@ -161,95 +202,138 @@ export default function OrganizerDashboardPage() {
 
         {displayedEvents.length > 0 ? (
           <div className="space-y-4">
-            {displayedEvents.map((evt) => (
-              <div
-                key={evt.id}
-                className="p-5 rounded-[14px] bg-neutral-50 border border-neutral-200 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-neutral-300 transition-colors"
-              >
-                <div className="flex items-start gap-4">
-                  <img
-                    src={evt.image_url}
-                    alt={evt.title}
-                    className="w-16 h-16 rounded-[10px] object-cover bg-neutral-200 flex-shrink-0"
-                  />
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-800 text-amber-700 uppercase tracking-wide bg-amber-100 px-2 py-0.5 rounded-[4px]">
-                        {evt.sport_name}
-                      </span>
-                      <Badge
-                        variant={evt.status === 'published' ? 'success' : evt.status === 'draft' ? 'warning' : 'neutral'}
+            {displayedEvents.map((evt) => {
+              const maxCap = Number(evt.max_participants || 200);
+              const regCount = evt.registrationsCount || 0;
+              const fillPct = Math.min(100, Math.round((regCount / maxCap) * 100));
+              const isCheckInRequired = evt.check_in_required !== false;
+
+              return (
+                <div
+                  key={evt.id}
+                  className="p-5 rounded-[16px] bg-neutral-50 border border-neutral-200 space-y-4 hover:border-neutral-300 transition-colors"
+                >
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <img
+                        src={evt.image_url}
+                        alt={evt.title}
+                        className="w-16 h-16 rounded-[12px] object-cover bg-neutral-200 flex-shrink-0"
+                      />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-800 text-amber-700 uppercase tracking-wide bg-amber-100 px-2 py-0.5 rounded-[4px]">
+                            {evt.sport_name}
+                          </span>
+                          <Badge
+                            variant={evt.status === 'published' ? 'success' : evt.status === 'draft' ? 'warning' : 'neutral'}
+                            size="sm"
+                          >
+                            {evt.status.toUpperCase().replace('_', ' ')}
+                          </Badge>
+                        </div>
+
+                        <h3 className="font-800 text-neutral-900 text-base">{evt.title}</h3>
+
+                        <div className="flex items-center gap-3 text-xs text-neutral-500">
+                          <span>{formatDateShort(evt.start_date)}</span>
+                          <span>•</span>
+                          <span>{evt.venue_name}, {evt.city_name}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button
+                        variant="outline"
                         size="sm"
+                        onClick={() => navigate(`/organizer/events/${evt.id}/analytics`)}
+                        icon={<BarChart3 size={14} />}
                       >
-                        {evt.status.toUpperCase().replace('_', ' ')}
-                      </Badge>
+                        Analytics
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/organizer/events/${evt.id}/registrations`)}
+                        icon={<Users size={14} />}
+                      >
+                        Participants
+                      </Button>
+
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => navigate(`/organizer/events/${evt.id}/check-in`)}
+                        icon={<QrCode size={14} />}
+                      >
+                        Check-In
+                      </Button>
+
+                      {evt.status === 'published' && (
+                        <Link
+                          to={`/events/${evt.slug}`}
+                          className="p-2 rounded-[8px] border border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-white"
+                          title="View Public Event Page"
+                        >
+                          <Eye size={16} />
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Visual Registration Progress & Check-In Status Bar */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-neutral-200/80 text-xs">
+                    {/* Registration Capacity Progress */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between font-700 text-neutral-800">
+                        <span>Registration Capacity</span>
+                        <span>{regCount} / {maxCap} ({fillPct}%)</span>
+                      </div>
+                      <div className="w-full h-2.5 rounded-full bg-neutral-200 overflow-hidden">
+                        <div
+                          className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                          style={{ width: `${fillPct}%` }}
+                        />
+                      </div>
                     </div>
 
-                    <h3 className="font-800 text-neutral-900 text-base">{evt.title}</h3>
-
-                    <div className="flex items-center gap-3 text-xs text-neutral-500">
-                      <span>{formatDateShort(evt.start_date)}</span>
-                      <span>•</span>
-                      <span>{evt.venue_name}, {evt.city_name}</span>
+                    {/* Check-in Attendance Status */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between font-700 text-neutral-800">
+                        <span>Check-In Attendance</span>
+                        {isCheckInRequired ? (
+                          <span>{evt.checkedInCount || 0} / {regCount} Checked In</span>
+                        ) : (
+                          <span className="text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-[10px] font-800 uppercase">
+                            Check-in Not Required
+                          </span>
+                        )}
+                      </div>
+                      {isCheckInRequired && (
+                        <div className="w-full h-2.5 rounded-full bg-neutral-200 overflow-hidden">
+                          <div
+                            className="h-full bg-green-500 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(100, Math.round(((evt.checkedInCount || 0) / Math.max(1, regCount)) * 100))}%` }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-
-                {/* Event Specs & Action Buttons */}
-                <div className="flex flex-wrap items-center justify-between md:justify-end gap-3 pt-3 md:pt-0 border-t md:border-0 border-neutral-200">
-                  <div className="text-xs text-left md:text-right pr-4 border-r border-neutral-200 hidden sm:block">
-                    <span className="font-800 text-neutral-900 block">{evt.registrationsCount || 0} Registrations</span>
-                    <span className="text-green-700 font-700">{evt.checkedInCount || 0} Checked In</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/organizer/events/${evt.id}/analytics`)}
-                      icon={<BarChart3 size={14} />}
-                    >
-                      Analytics
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/organizer/events/${evt.id}/registrations`)}
-                      icon={<Users size={14} />}
-                    >
-                      Participants
-                    </Button>
-
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => navigate(`/organizer/events/${evt.id}/check-in`)}
-                      icon={<QrCode size={14} />}
-                    >
-                      Check-In
-                    </Button>
-
-                    {evt.status === 'published' && (
-                      <Link
-                        to={`/events/${evt.slug}`}
-                        className="p-2 rounded-[8px] border border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-white"
-                        title="View Public Event Page"
-                      >
-                        <Eye size={16} />
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
-          <div className="p-8 text-center space-y-3">
-            <FileText size={32} className="text-neutral-400 mx-auto" />
-            <p className="text-sm font-700 text-neutral-700">No events in this view</p>
-            <p className="text-xs text-neutral-500">There are currently no events matching the selected tab category.</p>
-          </div>
+          <EmptyState
+            icon={FileText}
+            title="No events in this view"
+            description="There are currently no tournaments matching the selected tab category."
+            action={() => navigate('/organizer/events/create')}
+            actionLabel="Create Event"
+          />
         )}
       </div>
     </div>

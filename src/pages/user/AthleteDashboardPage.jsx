@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Trophy, Calendar, MapPin, Ticket, Bookmark, CheckCircle2, Clock, AlertCircle,
-  ArrowRight, Activity, User, ShieldCheck
+  ArrowRight, Activity, User, ShieldCheck, PieChart, TrendingUp, Users
 } from 'lucide-react';
 import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
@@ -57,27 +57,47 @@ export default function AthleteDashboardPage() {
   const completedRegs = registrations.filter((r) => r.status === 'completed' || (new Date(r.event?.end_date || r.event?.start_date) < new Date()));
   const pendingPaymentRegs = registrations.filter((r) => r.payment_status === 'pending' && r.status !== 'cancelled');
 
-  // Sport activity breakdown
+  // Sport activity breakdown & time series
   const sportCounts = {};
+  let individualCount = 0;
+  let teamCount = 0;
+  const monthlyActivity = {};
+
   registrations.forEach((r) => {
     const sName = r.event?.sport_name || 'Other Sports';
     sportCounts[sName] = (sportCounts[sName] || 0) + 1;
+
+    if (r.registration_type === 'team' || r.team_name) {
+      teamCount += 1;
+    } else {
+      individualCount += 1;
+    }
+
+    if (r.created_at) {
+      const monthYear = new Date(r.created_at).toLocaleString('en-US', { month: 'short' });
+      monthlyActivity[monthYear] = (monthlyActivity[monthYear] || 0) + 1;
+    }
   });
 
   const sportActivityList = Object.entries(sportCounts).sort((a, b) => b[1] - a[1]);
+  const monthlyActivityList = Object.entries(monthlyActivity);
   const displayName = profile?.full_name || user?.user_metadata?.full_name || 'Athlete';
+  const cityName = profile?.city_name || 'Coimbatore';
 
   return (
     <div className="kas-container py-8 lg:py-12 space-y-8 max-w-5xl">
-      {/* Header */}
+      {/* ── 1. PROFILE & GREETING HEADER ── */}
       <div className="border-b border-neutral-200 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-800 text-amber-600 uppercase tracking-widest block">Athlete Profile & Workspace</span>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-800 text-amber-600 uppercase tracking-widest block">Athlete Profile</span>
+            <span className="text-xs font-700 text-neutral-400">• {cityName}</span>
+          </div>
           <h1 className="text-2xl sm:text-3xl font-800 text-neutral-900 tracking-tight">
             Welcome back, {displayName}
           </h1>
-          <p className="text-xs text-neutral-500 mt-1">
-            Track your sports tournament passes, activity metrics, and saved events
+          <p className="text-xs text-neutral-500">
+            Here is your sports tournament activity, pass roster, and participation history.
           </p>
         </div>
 
@@ -88,7 +108,7 @@ export default function AthleteDashboardPage() {
             onClick={() => navigate('/saved')}
             icon={<Bookmark size={16} />}
           >
-            Saved Events ({savedCount})
+            Saved ({savedCount})
           </Button>
 
           <Button
@@ -102,7 +122,7 @@ export default function AthleteDashboardPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* ── 2. SUMMARY METRICS ── */}
       {loading ? (
         <SectionSkeleton count={4} />
       ) : (
@@ -129,12 +149,12 @@ export default function AthleteDashboardPage() {
         </div>
       )}
 
-      {/* Action Required: Pending Payments */}
+      {/* ── 3. ACTION REQUIRED: PENDING PAYMENTS ── */}
       {pendingPaymentRegs.length > 0 && (
-        <div className="bg-amber-50 rounded-[16px] border border-amber-200 p-6 space-y-4">
+        <div className="bg-amber-50 rounded-[16px] border border-amber-200 p-6 space-y-4 shadow-xs">
           <div className="flex items-center gap-2 font-800 text-amber-900 text-base">
             <AlertCircle size={20} className="text-amber-600" />
-            <span>Action Required: Pending Payments ({pendingPaymentRegs.length})</span>
+            <span>ACTION REQUIRED: Pending Payments ({pendingPaymentRegs.length})</span>
           </div>
 
           <div className="space-y-3">
@@ -159,18 +179,23 @@ export default function AthleteDashboardPage() {
         </div>
       )}
 
-      {/* Upcoming Tournaments Roster */}
+      {/* ── 4. UPCOMING EVENTS ROSTER ── */}
       <div className="bg-white rounded-[20px] border border-neutral-200 p-6 space-y-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-          <h3 className="font-800 text-neutral-900 text-base">Upcoming Tournament Passes</h3>
-          <Link to="/my-registrations" className="text-xs font-700 text-amber-700 hover:text-amber-800">View All Passes</Link>
+          <h3 className="font-800 text-neutral-900 text-base flex items-center gap-2">
+            <Calendar size={18} className="text-amber-600" />
+            Upcoming Tournament Passes
+          </h3>
+          <Link to="/my-registrations" className="text-xs font-700 text-amber-700 hover:text-amber-800">
+            View All Passes ({upcomingRegs.length})
+          </Link>
         </div>
 
         {upcomingRegs.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {upcomingRegs.map((reg) => (
-              <div key={reg.id} className="p-4 rounded-[12px] bg-neutral-50 border border-neutral-200 space-y-3">
-                <div className="flex justify-between">
+            {upcomingRegs.slice(0, 4).map((reg) => (
+              <div key={reg.id} className="p-4 rounded-[14px] bg-neutral-50 border border-neutral-200 space-y-3">
+                <div className="flex justify-between items-center">
                   <span className="text-[11px] font-800 font-mono text-neutral-500">{reg.registration_number}</span>
                   <Badge variant={reg.status === 'confirmed' ? 'success' : 'warning'} size="sm">
                     {reg.status.toUpperCase()}
@@ -196,47 +221,109 @@ export default function AthleteDashboardPage() {
         ) : (
           <EmptyState
             icon={Ticket}
-            title="No upcoming tournament passes"
-            description="You don't have any upcoming tournament registrations right now. Find exciting events in your city!"
+            title="Start Your Sports Journey"
+            description="You haven't joined any sports tournaments yet. Explore open events across Tamil Nadu!"
             action={() => navigate('/events')}
-            actionLabel="Discover Events"
+            actionLabel="Explore Events"
           />
         )}
       </div>
 
-      {/* Sports Activity Visualization Chart */}
-      <div className="bg-white rounded-[20px] border border-neutral-200 p-6 space-y-4 shadow-sm">
-        <h3 className="font-800 text-neutral-900 text-base flex items-center gap-2">
-          <Activity size={18} className="text-amber-500" />
-          My Sports Participation Breakdown
-        </h3>
+      {/* ── 5. SPORT PARTICIPATION & ACTIVITY TREND ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Sport Activity Horizontal Bar Chart */}
+        <div className="bg-white rounded-[20px] border border-neutral-200 p-6 space-y-4 shadow-sm">
+          <h3 className="font-800 text-neutral-900 text-base flex items-center gap-2">
+            <Activity size={18} className="text-amber-500" />
+            Sport Participation Breakdown
+          </h3>
 
-        {sportActivityList.length > 0 ? (
-          <div className="space-y-3 pt-2">
-            {sportActivityList.map(([sportName, count]) => {
-              const percentage = Math.round((count / Math.max(1, totalRegistered)) * 100);
-              return (
-                <div key={sportName} className="space-y-1 text-xs">
-                  <div className="flex justify-between font-700 text-neutral-900">
-                    <span>{sportName}</span>
-                    <span>{count} Tournament{count > 1 ? 's' : ''} ({percentage}%)</span>
+          {sportActivityList.length > 0 ? (
+            <div className="space-y-3 pt-2">
+              {sportActivityList.map(([sportName, count]) => {
+                const percentage = Math.round((count / Math.max(1, totalRegistered)) * 100);
+                return (
+                  <div key={sportName} className="space-y-1 text-xs">
+                    <div className="flex justify-between font-700 text-neutral-900">
+                      <span>{sportName}</span>
+                      <span>{count} Event{count > 1 ? 's' : ''} ({percentage}%)</span>
+                    </div>
+                    <div className="w-full h-2.5 rounded-full bg-neutral-100 overflow-hidden">
+                      <div
+                        className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full h-2.5 rounded-full bg-neutral-100 overflow-hidden">
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-neutral-500 py-4">
+              Your sports activity breakdown will appear here as you join tournaments across Tamil Nadu.
+            </p>
+          )}
+        </div>
+
+        {/* Monthly Activity Trend / Format Breakdown */}
+        <div className="bg-white rounded-[20px] border border-neutral-200 p-6 space-y-4 shadow-sm">
+          <h3 className="font-800 text-neutral-900 text-base flex items-center gap-2">
+            <TrendingUp size={18} className="text-amber-500" />
+            Registration Activity Trend
+          </h3>
+
+          {monthlyActivityList.length > 0 ? (
+            <div className="space-y-4 pt-2">
+              <div className="flex items-end gap-3 h-28 pt-4 border-b border-neutral-100 pb-2">
+                {monthlyActivityList.map(([mName, mCount]) => (
+                  <div key={mName} className="flex-1 flex flex-col items-center gap-1.5 text-[11px] h-full justify-end">
+                    <span className="font-800 text-neutral-900">{mCount}</span>
                     <div
-                      className="h-full bg-amber-500 rounded-full transition-all duration-500"
-                      style={{ width: `${percentage}%` }}
+                      className="w-full max-w-[28px] bg-amber-500 rounded-t-[4px] transition-all duration-500"
+                      style={{ height: `${Math.min(100, Math.max(15, mCount * 25))}px` }}
                     />
+                    <span className="text-neutral-500 font-700 text-[10px] uppercase">{mName}</span>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-xs text-neutral-500 py-2">
-            Your sports activity chart will appear here as you join tournaments across Tamil Nadu.
-          </p>
-        )}
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-neutral-600 font-700 pt-1">
+                <span>Participation Ratio:</span>
+                <span>{individualCount} Individual / {teamCount} Team</span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-neutral-500 py-4">
+              Your activity trend will appear here as you join more events.
+            </p>
+          )}
+        </div>
       </div>
+
+      {/* ── 6. RECENTLY COMPLETED EVENTS ── */}
+      {completedRegs.length > 0 && (
+        <div className="bg-white rounded-[20px] border border-neutral-200 p-6 space-y-4 shadow-sm">
+          <h3 className="font-800 text-neutral-900 text-base flex items-center gap-2">
+            <CheckCircle2 size={18} className="text-green-600" />
+            Recently Completed Tournaments
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {completedRegs.slice(0, 3).map((reg) => (
+              <div key={reg.id} className="p-4 rounded-[12px] bg-neutral-50 border border-neutral-200 space-y-2 text-xs">
+                <span className="text-[10px] font-800 uppercase text-green-700 bg-green-100 px-2 py-0.5 rounded-[4px]">
+                  COMPLETED
+                </span>
+                <h4 className="font-800 text-neutral-900 text-sm line-clamp-1">{reg.event?.title}</h4>
+                <div className="text-neutral-500 flex items-center justify-between text-[11px]">
+                  <span>{reg.event?.sport_name}</span>
+                  <span>{formatDateShort(reg.event?.start_date)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
