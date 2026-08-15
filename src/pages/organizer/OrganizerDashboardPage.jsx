@@ -3,7 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Trophy, Calendar, Users, QrCode, Plus, CheckCircle2, Clock, DollarSign,
-  ArrowRight, Edit3, Eye, AlertCircle, FileText, BarChart3
+  ArrowRight, Edit3, Eye, AlertCircle, FileText, BarChart3, TrendingUp,
+  TrendingDown, Minus, ShieldCheck, ArrowUpRight, ArrowDownRight, Layers,
+  Activity, CheckSquare, Sparkles, Filter, ChevronRight
 } from 'lucide-react';
 import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
@@ -12,330 +14,679 @@ import EmptyState from '../../components/common/EmptyState.jsx';
 import { SectionSkeleton } from '../../components/common/Skeleton.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { organizerService } from '../../services/organizerService.js';
-import { formatPrice, formatDateShort } from '../../utils/formatters.js';
+import { formatPrice, formatDateShort, formatRelativeTime } from '../../utils/formatters.js';
 
 export default function OrganizerDashboardPage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
 
-  const [metrics, setMetrics] = useState({
-    totalEvents: 0,
-    publishedEvents: 0,
-    totalRegistrations: 0,
-    checkedInCount: 0,
-    totalRevenue: 0,
-    events: [],
+  const [metrics, setMetrics] = useState(null);
+  const [preferences, setPreferences] = useState({
+    show_revenue_breakdown: true,
+    show_registration_trends: true,
+    show_sport_performance: true,
+    show_checkin_analytics: true,
+    show_top_events: true,
+    show_recent_registrations: true,
   });
+  const [dateRange, setDateRange] = useState('30d'); // '7d' | '30d' | '3m' | '6m' | '1y'
+  const [chartMode, setChartMode] = useState('revenue'); // 'revenue' | 'registrations'
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('upcoming');
+  const [error, setError] = useState(null);
+
+  const loadDashboardData = async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const [metricsData, prefsData] = await Promise.all([
+        organizerService.getDashboardMetrics(user.id, { dateRange }),
+        organizerService.getDashboardPreferences(user.id),
+      ]);
+      setMetrics(metricsData);
+      if (prefsData) setPreferences(prefsData);
+    } catch (err) {
+      console.error('Error loading organizer operations dashboard:', err);
+      setError('Unable to load dashboard analytics. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
+    loadDashboardData();
+  }, [user, dateRange]);
 
-    async function loadDashboard() {
-      if (!user) return;
-      setLoading(true);
+  // Needs Attention Events (Pending Review, Changes Requested, Drafts)
+  const needsAttentionEvents = metrics?.events?.filter(
+    (e) => e.status === 'pending_review' || e.status === 'changes_requested' || e.status === 'draft'
+  ) || [];
 
-      try {
-        const data = await organizerService.getDashboardMetrics(user.id);
-        if (active) setMetrics(data);
-      } catch (err) {
-        console.error('Error loading organizer dashboard:', err);
-      } finally {
-        if (active) setLoading(false);
-      }
+  // Helper for trend badge
+  const renderTrendBadge = (changePct, label) => {
+    if (!metrics?.growthComparison?.hasComparisonData || changePct === undefined || changePct === null) {
+      return null;
     }
 
-    loadDashboard();
-
-    return () => {
-      active = false;
-    };
-  }, [user]);
-
-  // Categorize events
-  const today = new Date();
-  const upcomingEvents = metrics.events.filter((e) => new Date(e.end_date || e.start_date) >= today && e.status !== 'draft' && e.status !== 'rejected');
-  const finishedEvents = metrics.events.filter((e) => new Date(e.end_date || e.start_date) < today && e.status === 'published');
-  const draftEvents = metrics.events.filter((e) => e.status === 'draft');
-  const pendingReviewEvents = metrics.events.filter((e) => e.status === 'pending_review');
-  const rejectedEvents = metrics.events.filter((e) => e.status === 'rejected');
-
-  const displayedEvents =
-    tab === 'upcoming'
-      ? upcomingEvents
-      : tab === 'finished'
-      ? finishedEvents
-      : tab === 'drafts'
-      ? draftEvents
-      : tab === 'pending'
-      ? pendingReviewEvents
-      : tab === 'rejected'
-      ? rejectedEvents
-      : metrics.events;
-
-  // Needs Attention Items
-  const needsAttentionEvents = metrics.events.filter(
-    (e) => e.status === 'pending_review' || e.status === 'changes_requested' || e.status === 'draft'
-  );
+    if (changePct > 0) {
+      return (
+        <span className="inline-flex items-center gap-0.5 text-[11px] font-700 text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-[5px]">
+          <ArrowUpRight size={12} /> +{changePct}% {label}
+        </span>
+      );
+    }
+    if (changePct < 0) {
+      return (
+        <span className="inline-flex items-center gap-0.5 text-[11px] font-700 text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded-[5px]">
+          <ArrowDownRight size={12} /> {changePct}% {label}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[11px] font-700 text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-[5px]">
+        <Minus size={12} /> No Change
+      </span>
+    );
+  };
 
   return (
-    <div className="kas-container py-8 lg:py-12 space-y-8 max-w-6xl">
-      {/* ── 1. Dashboard Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 pb-6">
+    <div className="space-y-8 max-w-7xl mx-auto pb-12">
+      {/* ── 1. Sports Operations Header ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-200 pb-5">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2.5">
             <h1 className="text-2xl sm:text-3xl font-800 text-neutral-900 tracking-tight">
-              Organizer Operations Dashboard
+              Organizer Dashboard
             </h1>
             <VerifiedBadge size="sm" />
           </div>
-          <p className="text-sm text-neutral-500">
-            Real-time tournament analytics, athlete registration progress, check-in operations, and captured revenues.
+          <p className="text-sm text-neutral-500 mt-0.5">
+            Overview of your events, registrations and revenue.
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          size="md"
-          onClick={() => navigate('/organizer/events/create')}
-          icon={<Plus size={18} />}
-          className="font-800 shadow-md"
-        >
-          Create New Event
-        </Button>
-      </div>
-
-      {/* ── 2. Operational KPI Cards ── */}
-      {loading ? (
-        <SectionSkeleton count={4} />
-      ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-[16px] border border-neutral-200 p-5 space-y-2 shadow-xs">
-            <span className="text-xs font-700 text-neutral-500 uppercase tracking-wide block">Total Events</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-800 text-neutral-900">{metrics.totalEvents}</span>
-              <span className="text-xs text-green-600 font-700">{metrics.publishedEvents} Published</span>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-[16px] border border-neutral-200 p-5 space-y-2 shadow-xs">
-            <span className="text-xs font-700 text-neutral-500 uppercase tracking-wide block">Total Registrations</span>
-            <span className="text-2xl sm:text-3xl font-800 text-neutral-900">{metrics.totalRegistrations}</span>
-          </div>
-
-          <div className="bg-white rounded-[16px] border border-neutral-200 p-5 space-y-2 shadow-xs">
-            <span className="text-xs font-700 text-neutral-500 uppercase tracking-wide block">Checked In Athletes</span>
-            <span className="text-2xl sm:text-3xl font-800 text-green-600">{metrics.checkedInCount}</span>
-          </div>
-
-          <div className="bg-white rounded-[16px] border border-neutral-200 p-5 space-y-2 shadow-xs">
-            <span className="text-xs font-700 text-neutral-500 uppercase tracking-wide block">Captured Revenue</span>
-            <span className="text-2xl sm:text-3xl font-800 text-amber-600">{formatPrice(metrics.totalRevenue)}</span>
-          </div>
-        </div>
-      )}
-
-      {/* ── 3. Needs Attention Section ── */}
-      {!loading && needsAttentionEvents.length > 0 && (
-        <div className="bg-amber-50 rounded-[16px] border border-amber-200 p-5 space-y-3 shadow-xs">
-          <div className="flex items-center gap-2 text-amber-900 font-800 text-xs uppercase tracking-wider">
-            <AlertCircle size={16} className="text-amber-600" />
-            <span>NEEDS YOUR ATTENTION ({needsAttentionEvents.length})</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-neutral-800">
-            {needsAttentionEvents.map((evt) => (
-              <div key={evt.id} className="bg-white p-3.5 rounded-[10px] border border-amber-200 flex items-center justify-between">
-                <div>
-                  <span className="font-800 text-neutral-900 block">{evt.title}</span>
-                  <span className="text-neutral-500 text-[11px] capitalize">
-                    {evt.status === 'pending_review'
-                      ? 'Awaiting Admin Approval'
-                      : evt.status === 'draft'
-                      ? 'Draft — Ready for Submission'
-                      : 'Changes Requested'}
-                  </span>
-                </div>
-
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => navigate(`/organizer/events/${evt.id}/edit`)}
-                >
-                  Edit
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── 4. Tournament Events Management List & Tabs ── */}
-      <div className="bg-white rounded-[20px] border border-neutral-200 p-6 space-y-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-4">
-          <h2 className="font-800 text-neutral-900 text-lg">My Sports Tournaments</h2>
-
-          {/* Categorization Tabs */}
-          <div className="flex border-b sm:border-b-0 border-neutral-200 gap-3 overflow-x-auto scrollbar-hidden">
+        {/* Date Filter & CTA Controls */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Period Selector */}
+          <div className="flex items-center bg-neutral-100 p-1 rounded-[10px] text-xs font-700">
             {[
-              { id: 'upcoming', label: `Upcoming (${upcomingEvents.length})` },
-              { id: 'finished', label: `Finished (${finishedEvents.length})` },
-              { id: 'drafts', label: `Drafts (${draftEvents.length})` },
-              { id: 'pending', label: `Pending Review (${pendingReviewEvents.length})` },
-              { id: 'rejected', label: `Rejected (${rejectedEvents.length})` },
-            ].map((t) => (
+              { id: '7d', label: '7D' },
+              { id: '30d', label: '30D' },
+              { id: '3m', label: '3M' },
+              { id: '6m', label: '6M' },
+              { id: '1y', label: '1Y' },
+            ].map((p) => (
               <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`py-1.5 px-3 rounded-[8px] text-xs font-700 whitespace-nowrap transition-colors ${
-                  tab === t.id
-                    ? 'bg-amber-50 text-amber-900 border border-amber-300 font-800'
-                    : 'text-neutral-500 hover:text-neutral-900 bg-neutral-50'
+                key={p.id}
+                onClick={() => setDateRange(p.id)}
+                className={`py-1.5 px-3 rounded-[7px] transition-colors ${
+                  dateRange === p.id
+                    ? 'bg-white text-neutral-900 shadow-xs font-800'
+                    : 'text-neutral-500 hover:text-neutral-800'
                 }`}
               >
-                {t.label}
+                {p.label}
               </button>
             ))}
           </div>
+
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => navigate('/organizer/events/create')}
+            icon={<Plus size={16} />}
+            className="font-700 shadow-xs"
+          >
+            Create Event
+          </Button>
         </div>
+      </div>
 
-        {displayedEvents.length > 0 ? (
-          <div className="space-y-4">
-            {displayedEvents.map((evt) => {
-              const maxCap = Number(evt.max_participants || 200);
-              const regCount = evt.registrationsCount || 0;
-              const fillPct = Math.min(100, Math.round((regCount / maxCap) * 100));
-              const isCheckInRequired = evt.check_in_required !== false;
+      {/* Error Fallback */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-[16px] p-6 text-center space-y-3">
+          <AlertCircle size={24} className="text-red-500 mx-auto" />
+          <p className="text-xs font-700 text-red-800">{error}</p>
+          <Button size="sm" variant="outline" onClick={loadDashboardData}>
+            Retry Loading
+          </Button>
+        </div>
+      )}
 
-              return (
-                <div
-                  key={evt.id}
-                  className="p-5 rounded-[16px] bg-neutral-50 border border-neutral-200 space-y-4 hover:border-neutral-300 transition-colors"
-                >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <img
-                        src={evt.image_url}
-                        alt={evt.title}
-                        className="w-16 h-16 rounded-[12px] object-cover bg-neutral-200 flex-shrink-0"
-                      />
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-800 text-amber-700 uppercase tracking-wide bg-amber-100 px-2 py-0.5 rounded-[4px]">
-                            {evt.sport_name}
-                          </span>
-                          <Badge
-                            variant={evt.status === 'published' ? 'success' : evt.status === 'draft' ? 'warning' : 'neutral'}
-                            size="sm"
-                          >
-                            {evt.status.toUpperCase().replace('_', ' ')}
-                          </Badge>
-                        </div>
+      {loading ? (
+        <div className="space-y-6">
+          <SectionSkeleton count={4} />
+          <SectionSkeleton count={2} />
+        </div>
+      ) : !metrics ? null : (
+        <>
+          {/* ── 2. Top Metric KPI Cards ── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Events */}
+            <div className="bg-white rounded-[16px] border border-neutral-200 p-5 space-y-2 shadow-xs hover:border-neutral-300 transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-700 text-neutral-500 uppercase tracking-wider">Total Events</span>
+                <span className="p-1.5 rounded-[8px] bg-amber-50 text-amber-600">
+                  <Trophy size={15} />
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-800 text-neutral-900">{metrics.totalEvents}</span>
+                <span className="text-xs text-neutral-500 font-600">({metrics.publishedEvents} Published)</span>
+              </div>
+              <div className="text-[11px] text-neutral-500 font-600">
+                <span className="text-amber-700 font-700">{metrics.upcomingEvents} Upcoming</span> • {metrics.completedEvents} Completed
+              </div>
+            </div>
 
-                        <h3 className="font-800 text-neutral-900 text-base">{evt.title}</h3>
+            {/* Total Registrations */}
+            <div className="bg-white rounded-[16px] border border-neutral-200 p-5 space-y-2 shadow-xs hover:border-neutral-300 transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-700 text-neutral-500 uppercase tracking-wider">Total Registrations</span>
+                <span className="p-1.5 rounded-[8px] bg-blue-50 text-blue-600">
+                  <Users size={15} />
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-800 text-neutral-900">{metrics.totalRegistrations}</span>
+                {renderTrendBadge(metrics.growthComparison?.registrationChange, 'period')}
+              </div>
+              <div className="text-[11px] text-neutral-500 font-600">
+                <span className="text-green-700 font-700">{metrics.confirmedRegistrations} Confirmed</span> • {metrics.pendingRegistrations} Pending
+              </div>
+            </div>
 
-                        <div className="flex items-center gap-3 text-xs text-neutral-500">
-                          <span>{formatDateShort(evt.start_date)}</span>
-                          <span>•</span>
-                          <span>{evt.venue_name}, {evt.city_name}</span>
-                        </div>
-                      </div>
+            {/* Checked-In Participants */}
+            <div className="bg-white rounded-[16px] border border-neutral-200 p-5 space-y-2 shadow-xs hover:border-neutral-300 transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-700 text-neutral-500 uppercase tracking-wider">Checked-In Athletes</span>
+                <span className="p-1.5 rounded-[8px] bg-green-50 text-green-600">
+                  <QrCode size={15} />
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-800 text-green-600">{metrics.checkedInCount}</span>
+                <span className="text-xs text-neutral-500 font-600">({metrics.checkinRate}%)</span>
+              </div>
+              <div className="text-[11px] text-neutral-500 font-600">
+                Of {metrics.totalEligibleForCheckin} eligible participants
+              </div>
+            </div>
+
+            {/* Captured Revenue */}
+            <div className="bg-white rounded-[16px] border border-neutral-200 p-5 space-y-2 shadow-xs hover:border-neutral-300 transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-700 text-neutral-500 uppercase tracking-wider">Captured Payments</span>
+                <span className="p-1.5 rounded-[8px] bg-emerald-50 text-emerald-600">
+                  <DollarSign size={15} />
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-800 text-neutral-900">
+                  {formatPrice(metrics.capturedPayments)}
+                </span>
+                {renderTrendBadge(metrics.growthComparison?.revenueChange, 'period')}
+              </div>
+              <div className="text-[11px] text-neutral-500 font-600">
+                Gross successfully settled entries
+              </div>
+            </div>
+          </div>
+
+          {/* ── 3. Financial & Revenue Breakdown Card ── */}
+          {preferences.show_revenue_breakdown && (
+            <div className="bg-white rounded-[20px] border border-neutral-200 p-6 shadow-xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-100 pb-4">
+                <div>
+                  <h2 className="font-800 text-neutral-900 text-base">Financial Settlement Breakdown</h2>
+                  <p className="text-xs text-neutral-500">
+                    Gross participant entries, KnowASport service fees, and net organizer earnings.
+                  </p>
+                </div>
+
+                <span className="text-[11px] font-700 text-neutral-400 bg-neutral-50 px-2.5 py-1 rounded-[6px] border border-neutral-100">
+                  Authoritative Captured Payments
+                </span>
+              </div>
+
+              {/* 3-Tier Financial Hierarchy */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Total Registration Payments */}
+                <div className="p-4 rounded-[14px] bg-neutral-50 border border-neutral-200/80 space-y-1">
+                  <span className="text-[11px] font-700 text-neutral-500 uppercase tracking-wider block">
+                    Total Registration Payments
+                  </span>
+                  <span className="text-2xl font-800 text-neutral-900 block">
+                    {formatPrice(metrics.totalRegistrationPayments)}
+                  </span>
+                  <p className="text-[11px] text-neutral-500">
+                    Total amount paid by participants for your events.
+                  </p>
+                </div>
+
+                {/* KnowASport Platform Fees */}
+                <div className="p-4 rounded-[14px] bg-neutral-50 border border-neutral-200/80 space-y-1">
+                  <span className="text-[11px] font-700 text-neutral-500 uppercase tracking-wider block">
+                    Platform / Service Fees
+                  </span>
+                  <span className="text-2xl font-800 text-neutral-700 block">
+                    {formatPrice(metrics.platformFees)}
+                  </span>
+                  <p className="text-[11px] text-neutral-500">
+                    Standard KnowASport platform gateway & tech fee (4%).
+                  </p>
+                </div>
+
+                {/* Organizer Earnings (Net) */}
+                <div className="p-4 rounded-[14px] bg-amber-50/70 border border-amber-200 space-y-1">
+                  <span className="text-[11px] font-800 text-amber-900 uppercase tracking-wider block">
+                    Organizer Amount (Earnings)
+                  </span>
+                  <span className="text-2xl font-800 text-amber-700 block">
+                    {formatPrice(metrics.organizerEarnings)}
+                  </span>
+                  <p className="text-[11px] text-amber-900/80">
+                    Net amount attributable to the organizer.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── 4. Needs Attention Action Banner ── */}
+          {needsAttentionEvents.length > 0 && (
+            <div className="bg-amber-50 rounded-[18px] border border-amber-200 p-5 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-amber-950 font-800 text-xs uppercase tracking-wider">
+                  <AlertCircle size={16} className="text-amber-600" />
+                  <span>Action Items Requiring Your Attention ({needsAttentionEvents.length})</span>
+                </div>
+                <Link to="/organizer/events" className="text-xs font-700 text-amber-800 hover:text-amber-950 underline">
+                  View in My Events →
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {needsAttentionEvents.map((evt) => (
+                  <div key={evt.id} className="bg-white p-3.5 rounded-[12px] border border-amber-200/80 flex items-center justify-between gap-2 shadow-2xs">
+                    <div className="min-w-0">
+                      <span className="font-800 text-neutral-900 text-xs block truncate">{evt.title}</span>
+                      <span className="text-[11px] text-neutral-500 capitalize block">
+                        {evt.status === 'pending_review'
+                          ? 'Awaiting Admin Approval'
+                          : evt.status === 'changes_requested'
+                          ? 'Changes Requested by Admin'
+                          : 'Draft — Ready to Submit'}
+                      </span>
                     </div>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => navigate(`/organizer/events/${evt.id}`)}
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/organizer/events/${evt.id}/analytics`)}
-                        icon={<BarChart3 size={14} />}
-                      >
-                        Analytics
-                      </Button>
+          {/* ── 5. Operational Trend Charts Section ── */}
+          {(preferences.show_registration_trends || preferences.show_revenue_breakdown) && (
+            <div className="bg-white rounded-[20px] border border-neutral-200 p-6 shadow-xs space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-4">
+                <div>
+                  <h2 className="font-800 text-neutral-900 text-base">Performance Trends Over Time</h2>
+                  <p className="text-xs text-neutral-500">
+                    Real historical trend analysis for {dateRange.toUpperCase()} duration.
+                  </p>
+                </div>
 
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/organizer/events/${evt.id}/registrations`)}
-                        icon={<Users size={14} />}
-                      >
-                        Participants
-                      </Button>
+                {/* Chart Mode Switcher */}
+                <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-[10px] text-xs font-700">
+                  <button
+                    onClick={() => setChartMode('revenue')}
+                    className={`py-1 px-3 rounded-[6px] transition-colors ${
+                      chartMode === 'revenue' ? 'bg-white text-neutral-900 shadow-xs font-800' : 'text-neutral-500 hover:text-neutral-800'
+                    }`}
+                  >
+                    Revenue Trend (₹)
+                  </button>
+                  <button
+                    onClick={() => setChartMode('registrations')}
+                    className={`py-1 px-3 rounded-[6px] transition-colors ${
+                      chartMode === 'registrations' ? 'bg-white text-neutral-900 shadow-xs font-800' : 'text-neutral-500 hover:text-neutral-800'
+                    }`}
+                  >
+                    Registrations Count
+                  </button>
+                </div>
+              </div>
 
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => navigate(`/organizer/events/${evt.id}/check-in`)}
-                        icon={<QrCode size={14} />}
-                      >
-                        Check-In
-                      </Button>
+              {/* Chart Visualizer Container */}
+              <div className="pt-2">
+                {chartMode === 'revenue' ? (
+                  /* Revenue Trend Area / Bars */
+                  <div className="space-y-3">
+                    <div className="h-48 w-full flex items-end gap-1.5 sm:gap-2 pt-6 px-2">
+                      {metrics.revenueTrend.map((item, idx) => {
+                        const maxVal = Math.max(...metrics.revenueTrend.map((t) => t.amount), 100);
+                        const heightPct = Math.max(8, Math.round((item.amount / maxVal) * 100));
 
-                      {evt.status === 'published' && (
-                        <Link
-                          to={`/events/${evt.slug}`}
-                          className="p-2 rounded-[8px] border border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-white"
-                          title="View Public Event Page"
-                        >
-                          <Eye size={16} />
-                        </Link>
-                      )}
+                        return (
+                          <div key={idx} className="flex-1 flex flex-col items-center gap-1 group relative h-full justify-end">
+                            {/* Hover Tooltip */}
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-10 bg-neutral-900 text-white text-[10px] py-1 px-2 rounded pointer-events-none whitespace-nowrap z-20 shadow-md">
+                              {item.label}: {formatPrice(item.amount)}
+                            </div>
+
+                            {/* Bar Column */}
+                            <div
+                              className="w-full bg-amber-500 rounded-t-[4px] group-hover:bg-amber-400 transition-all duration-300 min-h-[4px]"
+                              style={{ height: `${heightPct}%` }}
+                            />
+                            {/* Axis Label (show sparser labels on small screens) */}
+                            {idx % (dateRange === '7d' ? 1 : dateRange === '30d' ? 5 : 12) === 0 && (
+                              <span className="text-[10px] text-neutral-400 font-600 block truncate max-w-[36px]">
+                                {item.label}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-neutral-500 pt-2 border-t border-neutral-100 font-600">
+                      <span>Total Captured for Period: <strong>{formatPrice(metrics.revenueTrend.reduce((s, t) => s + t.amount, 0))}</strong></span>
+                      <span>Organizer Net: <strong>{formatPrice(metrics.revenueTrend.reduce((s, t) => s + t.organizerAmount, 0))}</strong></span>
                     </div>
                   </div>
+                ) : (
+                  /* Registrations Trend */
+                  <div className="space-y-3">
+                    <div className="h-48 w-full flex items-end gap-1.5 sm:gap-2 pt-6 px-2">
+                      {metrics.registrationTrend.map((item, idx) => {
+                        const maxCount = Math.max(...metrics.registrationTrend.map((t) => t.count), 5);
+                        const heightPct = Math.max(8, Math.round((item.count / maxCount) * 100));
 
-                  {/* Visual Registration Progress & Check-In Status Bar */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-neutral-200/80 text-xs">
-                    {/* Registration Capacity Progress */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between font-700 text-neutral-800">
-                        <span>Registration Capacity</span>
-                        <span>{regCount} / {maxCap} ({fillPct}%)</span>
-                      </div>
-                      <div className="w-full h-2.5 rounded-full bg-neutral-200 overflow-hidden">
-                        <div
-                          className="h-full bg-amber-500 rounded-full transition-all duration-500"
-                          style={{ width: `${fillPct}%` }}
-                        />
-                      </div>
+                        return (
+                          <div key={idx} className="flex-1 flex flex-col items-center gap-1 group relative h-full justify-end">
+                            {/* Tooltip */}
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-10 bg-neutral-900 text-white text-[10px] py-1 px-2 rounded pointer-events-none whitespace-nowrap z-20 shadow-md">
+                              {item.label}: {item.count} registrations
+                            </div>
+
+                            {/* Bar */}
+                            <div
+                              className="w-full bg-blue-500 rounded-t-[4px] group-hover:bg-blue-400 transition-all duration-300 min-h-[4px]"
+                              style={{ height: `${heightPct}%` }}
+                            />
+
+                            {idx % (dateRange === '7d' ? 1 : dateRange === '30d' ? 5 : 12) === 0 && (
+                              <span className="text-[10px] text-neutral-400 font-600 block truncate max-w-[36px]">
+                                {item.label}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
+                    <div className="flex items-center justify-between text-[11px] text-neutral-500 pt-2 border-t border-neutral-100 font-600">
+                      <span>Total Registrations for Period: <strong>{metrics.registrationTrend.reduce((s, t) => s + t.count, 0)}</strong></span>
+                      <span>Average Daily: <strong>{(metrics.registrationTrend.reduce((s, t) => s + t.count, 0) / metrics.registrationTrend.length).toFixed(1)}</strong></span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
-                    {/* Check-in Attendance Status */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between font-700 text-neutral-800">
-                        <span>Check-In Attendance</span>
-                        {isCheckInRequired ? (
-                          <span>{evt.checkedInCount || 0} / {regCount} Checked In</span>
-                        ) : (
-                          <span className="text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-[10px] font-800 uppercase">
-                            Check-in Not Required
-                          </span>
-                        )}
-                      </div>
-                      {isCheckInRequired && (
-                        <div className="w-full h-2.5 rounded-full bg-neutral-200 overflow-hidden">
+          {/* ── 6. Two Column Section: Sport Performance & Event Portfolio ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Sport Performance */}
+            {preferences.show_sport_performance && (
+              <div className="bg-white rounded-[20px] border border-neutral-200 p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+                  <h3 className="font-800 text-neutral-900 text-sm flex items-center gap-2">
+                    <Trophy size={16} className="text-amber-500" />
+                    Sport Performance Distribution
+                  </h3>
+                  <span className="text-xs text-neutral-400 font-600">{metrics.sportPerformance.length} Sports</span>
+                </div>
+
+                {metrics.sportPerformance.length > 0 ? (
+                  <div className="space-y-3.5">
+                    {metrics.sportPerformance.map((item) => (
+                      <div key={item.sport} className="space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between font-700 text-neutral-800">
+                          <span>{item.sport} ({item.count} {item.count === 1 ? 'event' : 'events'})</span>
+                          <span>{item.registrations} registrations • {formatPrice(item.revenue)}</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-neutral-100 overflow-hidden">
                           <div
-                            className="h-full bg-green-500 rounded-full transition-all duration-500"
-                            style={{ width: `${Math.min(100, Math.round(((evt.checkedInCount || 0) / Math.max(1, regCount)) * 100))}%` }}
+                            className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.max(5, item.percentage)}%` }}
                           />
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    ))}
                   </div>
+                ) : (
+                  <p className="text-xs text-neutral-400 py-6 text-center">No sport data recorded yet.</p>
+                )}
+              </div>
+            )}
+
+            {/* Event Status Portfolio Overview */}
+            <div className="bg-white rounded-[20px] border border-neutral-200 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+                <h3 className="font-800 text-neutral-900 text-sm flex items-center gap-2">
+                  <Layers size={16} className="text-neutral-700" />
+                  Tournament Portfolio Overview
+                </h3>
+                <Link to="/organizer/events" className="text-xs font-700 text-amber-600 hover:text-amber-700">
+                  Manage Events →
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-[12px] bg-neutral-50 border border-neutral-200/80 space-y-1">
+                  <span className="text-[11px] font-700 text-neutral-500 block">Upcoming</span>
+                  <span className="text-xl font-800 text-neutral-900 block">{metrics.statusOverview.upcoming}</span>
                 </div>
-              );
-            })}
+
+                <div className="p-3.5 rounded-[12px] bg-green-50/60 border border-green-200/80 space-y-1">
+                  <span className="text-[11px] font-700 text-green-800 block">Reg. Open</span>
+                  <span className="text-xl font-800 text-green-700 block">{metrics.statusOverview.regOpen}</span>
+                </div>
+
+                <div className="p-3.5 rounded-[12px] bg-neutral-50 border border-neutral-200/80 space-y-1">
+                  <span className="text-[11px] font-700 text-neutral-500 block">Reg. Closed</span>
+                  <span className="text-xl font-800 text-neutral-900 block">{metrics.statusOverview.regClosed}</span>
+                </div>
+
+                <div className="p-3.5 rounded-[12px] bg-neutral-50 border border-neutral-200/80 space-y-1">
+                  <span className="text-[11px] font-700 text-neutral-500 block">Completed</span>
+                  <span className="text-xl font-800 text-neutral-900 block">{metrics.statusOverview.completed}</span>
+                </div>
+
+                <div className="p-3.5 rounded-[12px] bg-amber-50/60 border border-amber-200/80 space-y-1">
+                  <span className="text-[11px] font-700 text-amber-800 block">Pending Review</span>
+                  <span className="text-xl font-800 text-amber-700 block">{metrics.statusOverview.pending}</span>
+                </div>
+
+                <div className="p-3.5 rounded-[12px] bg-neutral-50 border border-neutral-200/80 space-y-1">
+                  <span className="text-[11px] font-700 text-neutral-500 block">Drafts</span>
+                  <span className="text-xl font-800 text-neutral-700 block">{metrics.statusOverview.drafts}</span>
+                </div>
+              </div>
+            </div>
           </div>
-        ) : (
-          <EmptyState
-            icon={FileText}
-            title="No events in this view"
-            description="There are currently no tournaments matching the selected tab category."
-            action={() => navigate('/organizer/events/create')}
-            actionLabel="Create Event"
-          />
-        )}
-      </div>
+
+          {/* ── 7. Top Performing Events & Upcoming Events ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Top Events Leaderboard */}
+            {preferences.show_top_events && (
+              <div className="bg-white rounded-[20px] border border-neutral-200 p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+                  <h3 className="font-800 text-neutral-900 text-sm flex items-center gap-2">
+                    <TrendingUp size={16} className="text-emerald-600" />
+                    Top Performing Events
+                  </h3>
+                  <span className="text-xs text-neutral-400 font-600">By Registrations</span>
+                </div>
+
+                {metrics.topEvents.length > 0 ? (
+                  <div className="divide-y divide-neutral-100">
+                    {metrics.topEvents.map((evt, idx) => (
+                      <div key={evt.id} className="py-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-5 h-5 rounded-full bg-neutral-100 text-neutral-600 font-800 text-xs flex items-center justify-center flex-shrink-0">
+                            {idx + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <span className="font-800 text-neutral-900 text-xs block truncate max-w-[220px]">
+                              {evt.title}
+                            </span>
+                            <span className="text-[11px] text-neutral-500">
+                              {evt.sport_name} • {formatDateShort(evt.start_date)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-right flex-shrink-0">
+                          <span className="font-800 text-neutral-900 text-xs block">
+                            {evt.registrationsCount} entries
+                          </span>
+                          <span className="text-[11px] text-amber-700 font-700 block">
+                            {formatPrice(evt.capturedRevenue || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-neutral-400 py-6 text-center">No event registrations recorded yet.</p>
+                )}
+              </div>
+            )}
+
+            {/* Upcoming Events Next in Schedule */}
+            <div className="bg-white rounded-[20px] border border-neutral-200 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+                <h3 className="font-800 text-neutral-900 text-sm flex items-center gap-2">
+                  <Calendar size={16} className="text-blue-600" />
+                  Upcoming Next in Schedule
+                </h3>
+                <Link to="/organizer/events?tab=upcoming" className="text-xs font-700 text-amber-600 hover:text-amber-700">
+                  View All ({metrics.upcomingEvents}) →
+                </Link>
+              </div>
+
+              {metrics.upcomingEventsList.length > 0 ? (
+                <div className="divide-y divide-neutral-100">
+                  {metrics.upcomingEventsList.map((evt) => (
+                    <div key={evt.id} className="py-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={evt.poster_url || evt.image_url}
+                          alt={evt.title}
+                          className="w-10 h-10 rounded-[8px] object-cover bg-neutral-100 flex-shrink-0"
+                          onError={(e) => {
+                            e.target.src = 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&auto=format&fit=crop&q=80';
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <span className="font-800 text-neutral-900 text-xs block truncate max-w-[200px]">
+                            {evt.title}
+                          </span>
+                          <span className="text-[11px] text-neutral-500 truncate block">
+                            {formatDateShort(evt.start_date)} • {evt.venue_name}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() => navigate(`/organizer/events/${evt.id}/registrations`)}
+                        >
+                          Manage
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-neutral-400 py-6 text-center">No upcoming events scheduled.</p>
+              )}
+            </div>
+          </div>
+
+          {/* ── 8. Recent Registrations Live Feed ── */}
+          {preferences.show_recent_registrations && (
+            <div className="bg-white rounded-[20px] border border-neutral-200 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+                <h3 className="font-800 text-neutral-900 text-sm flex items-center gap-2">
+                  <Activity size={16} className="text-amber-500" />
+                  Recent Athlete Registrations
+                </h3>
+                <span className="text-xs text-neutral-400 font-600">Latest 10 entries</span>
+              </div>
+
+              {metrics.recentRegistrations.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-neutral-100 text-neutral-400 font-700 uppercase tracking-wider text-[10px]">
+                        <th className="py-2.5 px-3">Participant</th>
+                        <th className="py-2.5 px-3">Tournament</th>
+                        <th className="py-2.5 px-3">Type</th>
+                        <th className="py-2.5 px-3">Payment</th>
+                        <th className="py-2.5 px-3">Check-In</th>
+                        <th className="py-2.5 px-3 text-right">Registered</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100">
+                      {metrics.recentRegistrations.map((reg) => (
+                        <tr key={reg.id} className="hover:bg-neutral-50/60 transition-colors">
+                          <td className="py-2.5 px-3 font-800 text-neutral-900">{reg.participant_name}</td>
+                          <td className="py-2.5 px-3 text-neutral-700 truncate max-w-[200px]">{reg.event_title}</td>
+                          <td className="py-2.5 px-3">
+                            <span className="text-[10px] font-700 uppercase bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded">
+                              {reg.participation_type}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <Badge
+                              variant={reg.payment_status === 'paid' ? 'success' : reg.payment_status === 'failed' ? 'danger' : 'neutral'}
+                              size="xs"
+                            >
+                              {reg.payment_status.toUpperCase()}
+                            </Badge>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className={`text-[10px] font-700 ${reg.checkin_status === 'checked_in' ? 'text-green-700' : 'text-neutral-400'}`}>
+                              {reg.checkin_status === 'checked_in' ? 'Checked In' : 'Not Checked In'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-neutral-400 text-[11px]">
+                            {formatDateShort(reg.created_at)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-xs text-neutral-400 py-6 text-center">No recent registrations received.</p>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

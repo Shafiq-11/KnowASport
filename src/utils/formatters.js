@@ -162,3 +162,27 @@ export function validateIndianPhoneNumber(phone) {
   const sanitized = sanitizePhoneNumber(phone);
   return /^[6-9]\d{9}$/.test(sanitized);
 }
+
+/**
+ * Format relative time (e.g., "5m ago", "2h ago", "Yesterday")
+ */
+export function formatRelativeTime(dateInput) {
+  if (!dateInput) return '';
+  const date = parseDateSafe(dateInput);
+  if (!date) return '';
+
+  const now = new Date();
+  const diffMs = now - date;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffSec < 60) return 'Just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHour < 24) return `${diffHour}h ago`;
+  if (diffDay === 1) return 'Yesterday';
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return formatDateShort(date);
+}
+

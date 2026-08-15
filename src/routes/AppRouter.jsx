@@ -40,6 +40,7 @@ import CreateEventPage from '../pages/organizer/CreateEventPage.jsx';
 import EditEventPage from '../pages/organizer/EditEventPage.jsx';
 import ManageRegistrationsPage from '../pages/organizer/ManageRegistrationsPage.jsx';
 import OrganizerEventAnalyticsPage from '../pages/organizer/OrganizerEventAnalyticsPage.jsx';
+import OrganizerSettingsPage from '../pages/organizer/OrganizerSettingsPage.jsx';
 import OrganizerCheckinPage from '../pages/organizer/OrganizerCheckinPage.jsx';
 import OrganizerCheckinSelectPage from '../pages/organizer/OrganizerCheckinSelectPage.jsx';
 
@@ -112,6 +113,7 @@ const router = createBrowserRouter([
       { path: 'events/:id',                         element: <EditEventPage /> },
       { path: 'events/:id/registrations',           element: <ManageRegistrationsPage /> },
       { path: 'events/:id/analytics',               element: <OrganizerEventAnalyticsPage /> },
+      { path: 'settings',                           element: <OrganizerSettingsPage /> },
     ],
   },
 

@@ -274,6 +274,35 @@ export function AuthProvider({ children }) {
     return true;
   };
 
+  // ── CHANGE PASSWORD ──
+  const changePassword = async ({ currentPassword, newPassword }) => {
+    if (!user) throw new Error('Authentication required.');
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error('New password must be at least 6 characters long.');
+    }
+
+    if (isSupabaseConfigured) {
+      if (currentPassword && user.email) {
+        const { error: verifyErr } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: currentPassword,
+        });
+        if (verifyErr) {
+          throw new Error('Current password is incorrect.');
+        }
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) throw error;
+      return { success: true };
+    } else {
+      return { success: true };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -287,6 +316,7 @@ export function AuthProvider({ children }) {
         signOut,
         updateProfile,
         resetPassword,
+        changePassword,
       }}
     >
       {children}

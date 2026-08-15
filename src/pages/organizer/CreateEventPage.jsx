@@ -118,11 +118,11 @@ export default function CreateEventPage() {
         </p>
 
         <div className="flex justify-center gap-3 pt-2">
-          <Button variant="outline" size="sm" onClick={() => navigate('/organizer/dashboard')}>
-            Organizer Dashboard
+          <Button variant="outline" size="sm" onClick={() => navigate('/organizer/events')}>
+            View in My Events
           </Button>
-          <Button variant="primary" size="sm" onClick={() => navigate('/events')}>
-            View Public Events
+          <Button variant="primary" size="sm" onClick={() => navigate('/organizer/dashboard')}>
+            Organizer Dashboard
           </Button>
         </div>
       </div>
