@@ -2,7 +2,7 @@ import { forwardRef } from 'react';
 
 /**
  * KnowASport Input
- * Consistent form input with label, helper text, and error state
+ * Consistent form input with label, helper text, error state, and phone number sanitization
  */
 const Input = forwardRef(function Input({
   label,
@@ -17,15 +17,29 @@ const Input = forwardRef(function Input({
   helperText,
   disabled = false,
   required = false,
+  isPhone = false,
   icon = null,
   iconPosition = 'left',
   suffix = null,
   className = '',
   inputClassName = '',
+  maxLength,
   ...props
 }, ref) {
   const hasError = Boolean(error);
   const activeHelper = helper || helperText;
+  const isTelType = type === 'tel' || isPhone;
+
+  const handleChange = (e) => {
+    if (isTelType) {
+      // Strip non-digits and cap at 10 digits
+      const sanitized = e.target.value.replace(/\D/g, '').slice(0, 10);
+      e.target.value = sanitized;
+      onChange?.({ ...e, target: { ...e.target, value: sanitized } });
+    } else {
+      onChange?.(e);
+    }
+  };
 
   const inputBase = `
     w-full font-medium text-sm text-neutral-900 bg-white
@@ -65,11 +79,14 @@ const Input = forwardRef(function Input({
           id={id}
           type={type}
           value={value}
-          onChange={onChange}
+          onChange={handleChange}
           onBlur={onBlur}
           placeholder={placeholder}
           disabled={disabled}
           required={required}
+          maxLength={isTelType ? 10 : maxLength}
+          inputMode={isTelType ? 'numeric' : props.inputMode}
+          autoComplete={isTelType ? 'tel' : props.autoComplete}
           className={[inputBase, inputState, paddingLeft, paddingRight, inputClassName].join(' ')}
           aria-invalid={hasError}
           aria-describedby={hasError ? `${id}-error` : activeHelper ? `${id}-helper` : undefined}

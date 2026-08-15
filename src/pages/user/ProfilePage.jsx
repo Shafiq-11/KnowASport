@@ -6,6 +6,7 @@ import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { SPORTS, MAJOR_CITIES, SKILL_LEVELS } from '../../utils/constants.js';
+import { validateIndianPhoneNumber } from '../../utils/formatters.js';
 
 export default function ProfilePage() {
   const { user, profile, updateProfile, signOut } = useAuth();
@@ -45,6 +46,12 @@ export default function ProfilePage() {
     setSuccessMsg('');
     setErrorMsg('');
     setIsSaving(true);
+
+    if (phone && !validateIndianPhoneNumber(phone)) {
+      setErrorMsg('Enter a valid 10-digit mobile number.');
+      setIsSaving(false);
+      return;
+    }
 
     try {
       await updateProfile({

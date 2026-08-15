@@ -8,6 +8,7 @@ import Badge from '../../components/common/Badge.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { organizerService } from '../../services/organizerService.js';
 import { MAJOR_CITIES, SPORTS_CATEGORIES } from '../../utils/constants.js';
+import { validateIndianPhoneNumber } from '../../utils/formatters.js';
 
 export default function OrganizerRegisterPage() {
   const navigate = useNavigate();
@@ -101,8 +102,8 @@ export default function OrganizerRegisterPage() {
         setError('Please enter your organization name.');
         return;
       }
-      if (!formData.phone.trim()) {
-        setError('Please enter a valid phone number.');
+      if (!formData.phone || !validateIndianPhoneNumber(formData.phone)) {
+        setError('Enter a valid 10-digit mobile number.');
         return;
       }
     }

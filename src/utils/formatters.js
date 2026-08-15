@@ -47,7 +47,6 @@ export function formatDateShort(date) {
  */
 export function formatTime(timeStr) {
   if (!timeStr) return '';
-  // timeStr could be "HH:MM:SS" from DB or a full ISO string
   const parts = timeStr.split(':');
   const hours = parseInt(parts[0], 10);
   const minutes = parts[1] || '00';
@@ -57,126 +56,55 @@ export function formatTime(timeStr) {
 }
 
 /**
- * Get relative time until registration closes
- * @param {string|Date} deadline
- * @returns {string} e.g. "Closes in 4 days", "Closing tomorrow", "Closed"
+ * Check if event registration is currently open
  */
-export function getRegistrationDeadlineText(deadline) {
-  if (!deadline) return '';
-  const now = new Date();
-  const end = typeof deadline === 'string' ? new Date(deadline) : deadline;
-  const diff = end - now;
-
-  if (diff <= 0) return 'Registration closed';
-
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const minutes = Math.floor(diff / (1000 * 60));
-
-  if (days > 30) return `Closes ${formatDate(end)}`;
-  if (days === 1) return 'Closes tomorrow';
-  if (days > 1) return `Closes in ${days} days`;
-  if (hours > 1) return `Closes in ${hours} hours`;
-  if (minutes > 1) return `Closes in ${minutes} minutes`;
-  return 'Closing soon';
+export function isRegistrationOpen(deadlineDate) {
+  if (!deadlineDate) return true;
+  return new Date(deadlineDate) > new Date();
 }
 
 /**
- * Get urgency level for registration deadline (for styling)
- * @returns {'critical'|'urgent'|'normal'|'closed'}
+ * Get relative time until registration closes
  */
-export function getDeadlineUrgency(deadline) {
-  if (!deadline) return 'normal';
+export function getRegistrationDeadlineText(deadlineDate) {
+  if (!deadlineDate) return '';
   const now = new Date();
-  const end = typeof deadline === 'string' ? new Date(deadline) : deadline;
-  const diff = end - now;
+  const deadline = new Date(deadlineDate);
+  const diffMs = deadline - now;
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diff <= 0) return 'closed';
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  if (days <= 2) return 'critical';
-  if (days <= 7) return 'urgent';
+  if (diffMs <= 0) return 'Registration Closed';
+  if (diffDays === 1) return 'Closes Today';
+  if (diffDays <= 3) return `Closes in ${diffDays} days`;
+  return `Closes ${formatDateShort(deadlineDate)}`;
+}
+
+export function getDeadlineUrgency(deadlineDate) {
+  if (!deadlineDate) return 'normal';
+  const now = new Date();
+  const deadline = new Date(deadlineDate);
+  const diffMs = deadline - now;
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  if (diffMs <= 0) return 'closed';
+  if (diffHours <= 24) return 'critical';
+  if (diffHours <= 72) return 'urgent';
   return 'normal';
 }
 
 /**
- * Convert a string to URL-safe slug
+ * Sanitize input to allow strictly up to 10 digits for Indian mobile numbers
  */
-export function slugify(str) {
-  return str
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
+export function sanitizePhoneNumber(value) {
+  if (!value) return '';
+  return String(value).replace(/\D/g, '').slice(0, 10);
 }
 
 /**
- * Generate a registration ID (client-side mock — DB will generate real one)
+ * Validate 10-digit Indian mobile number (Starts with 6-9, exactly 10 digits)
  */
-export function generateRegistrationId() {
-  const year = new Date().getFullYear();
-  const num = Math.floor(100000 + Math.random() * 900000);
-  return `KAS-${year}-${num}`;
-}
-
-/**
- * Get initials from a full name
- */
-export function getInitials(name = '') {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(w => w[0].toUpperCase())
-    .join('');
-}
-
-/**
- * Truncate text to a given length
- */
-export function truncate(str, maxLength = 100) {
-  if (!str || str.length <= maxLength) return str;
-  return str.slice(0, maxLength).trimEnd() + '…';
-}
-
-/**
- * Conditional class names (simple alternative to clsx for strings)
- */
-export function cn(...classes) {
-  return classes.filter(Boolean).join(' ');
-}
-
-/**
- * Calculate platform fee
- */
-export function calculateFees(entryFee, platformFeePercent = 2.5) {
-  const platformFee = Math.ceil(entryFee * (platformFeePercent / 100));
-  return {
-    entryFee,
-    platformFee,
-    total: entryFee + platformFee,
-  };
-}
-
-/**
- * Check if registration is open
- */
-export function isRegistrationOpen(event) {
-  if (!event) return false;
-  if (event.status !== 'published') return false;
-  const now = new Date();
-  const start = event.registration_start ? new Date(event.registration_start) : null;
-  const end = event.registration_deadline ? new Date(event.registration_deadline) : null;
-  if (start && now < start) return false;
-  if (end && now > end) return false;
-  if (event.max_participants && event.current_participants >= event.max_participants) return false;
-  return true;
-}
-
-/**
- * Format participant count
- */
-export function formatParticipants(current, max) {
-  if (!max) return `${current} registered`;
-  return `${current} / ${max}`;
+export function validateIndianPhoneNumber(phone) {
+  if (!phone) return false;
+  const digitsOnly = sanitizePhoneNumber(phone);
+  return /^[6-9][0-9]{9}$/.test(digitsOnly);
 }

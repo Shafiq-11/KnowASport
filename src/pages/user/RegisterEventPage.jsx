@@ -10,7 +10,7 @@ import Button from '../../components/common/Button.jsx';
 import { useEventDetail } from '../../hooks/useEvents.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { registrationService } from '../../services/registrationService.js';
-import { formatPrice, formatDate, formatDateShort } from '../../utils/formatters.js';
+import { formatPrice, formatDate, formatDateShort, validateIndianPhoneNumber } from '../../utils/formatters.js';
 import { MAJOR_CITIES } from '../../utils/constants.js';
 
 export default function RegisterEventPage() {
@@ -126,6 +126,10 @@ export default function RegisterEventPage() {
           setError(`Please enter the full name for Player ${i + 1}.`);
           return;
         }
+        if (teamPlayers[i].phone && !validateIndianPhoneNumber(teamPlayers[i].phone)) {
+          setError(`Enter a valid 10-digit mobile number for Player ${i + 1}.`);
+          return;
+        }
       }
     } else {
       if (!primaryParticipant.full_name.trim()) {
@@ -134,6 +138,10 @@ export default function RegisterEventPage() {
       }
       if (!primaryParticipant.email.includes('@')) {
         setError('Please enter a valid email address.');
+        return;
+      }
+      if (primaryParticipant.phone && !validateIndianPhoneNumber(primaryParticipant.phone)) {
+        setError('Enter a valid 10-digit mobile number.');
         return;
       }
     }
