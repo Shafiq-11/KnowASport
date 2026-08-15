@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { eventService } from './eventService.js';
 import { registrationService } from './registrationService.js';
+import { notificationService } from './notificationService.js';
 
 const LOCAL_ADMIN_APPS_KEY = 'kas_mock_organizer_apps_v1';
 const LOCAL_ADMIN_EVENTS_KEY = 'kas_mock_organizer_events_v1';
@@ -126,8 +127,20 @@ export const adminService = {
     const reviewedAt = new Date().toISOString();
     await this._logAudit(adminUser?.id, 'APPROVE_ORGANIZER', 'organizer_application', appId, { status: 'approved' });
 
+    const stored = this._getStoredApplications();
+    const targetApp = stored.find((a) => a.id === appId || a.user_id === appId);
+    const targetUserId = targetApp?.user_id || appId;
+
+    await notificationService.createNotification({
+      userId: targetUserId,
+      type: 'organizer_approved',
+      title: 'Organizer Account Approved',
+      message: 'Your organizer account has been approved. You can now list public sports events on KnowASport.',
+      relatedType: 'organizer',
+      relatedId: appId,
+    });
+
     if (!isSupabaseConfigured) {
-      const stored = this._getStoredApplications();
       const updated = stored.map((a) =>
         a.id === appId || a.user_id === appId
           ? { ...a, status: 'approved', reviewed_at: reviewedAt }

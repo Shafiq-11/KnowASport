@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { eventService } from './eventService.js';
+import { notificationService } from './notificationService.js';
 
 const LOCAL_REGISTRATIONS_KEY = 'kas_mock_registrations_v1';
 
@@ -97,6 +98,29 @@ export const registrationService = {
       const stored = this._getStoredRegistrations();
       stored.unshift(newReg);
       localStorage.setItem(LOCAL_REGISTRATIONS_KEY, JSON.stringify(stored));
+
+      // Trigger notifications for free/confirmed registration
+      if (isFree) {
+        await notificationService.createNotification({
+          userId: user.id,
+          type: 'registration_confirmed',
+          title: 'Registration Confirmed',
+          message: `Your registration for ${event.title} is confirmed.`,
+          relatedType: 'event',
+          relatedId: event.slug || event.id,
+        });
+
+        if (event.check_in_required !== false) {
+          await notificationService.createNotification({
+            userId: user.id,
+            type: 'checkin_information',
+            title: 'QR Entry Ticket Ready',
+            message: `Check-in is required at venue for ${event.title}. Present your QR code at entry.`,
+            relatedType: 'event',
+            relatedId: event.slug || event.id,
+          });
+        }
+      }
 
       return newReg;
     }

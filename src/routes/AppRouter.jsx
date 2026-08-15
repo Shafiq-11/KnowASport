@@ -30,6 +30,7 @@ import RegistrationSuccessPage from '../pages/user/RegistrationSuccessPage.jsx';
 import MyRegistrationsPage from '../pages/user/MyRegistrationsPage.jsx';
 import RegistrationDetailPage from '../pages/user/RegistrationDetailPage.jsx';
 import SavedEventsPage from '../pages/user/SavedEventsPage.jsx';
+import NotificationsPage from '../pages/user/NotificationsPage.jsx';
 
 // Organizer pages
 import OrganizerRegisterPage from '../pages/organizer/OrganizerRegisterPage.jsx';
@@ -83,6 +84,7 @@ const router = createBrowserRouter([
       { path: '/my-registrations/:id',              element: <ProtectedRoute><RegistrationDetailPage /></ProtectedRoute> },
       { path: '/dashboard',                          element: <ProtectedRoute><AthleteDashboardPage /></ProtectedRoute> },
       { path: '/saved',                             element: <ProtectedRoute><SavedEventsPage /></ProtectedRoute> },
+      { path: '/notifications',                     element: <ProtectedRoute><NotificationsPage /></ProtectedRoute> },
       { path: '/profile',                           element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
 
       // Organizer check-in routes

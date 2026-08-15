@@ -3,11 +3,12 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Menu, X, ChevronDown, User, LogOut, Ticket,
-  Heart, Trophy, LayoutDashboard, Plus, Bell
+  Heart, Trophy, LayoutDashboard, Plus, Bell, CheckCheck
 } from 'lucide-react';
 import Button from '../common/Button.jsx';
 import SearchBar from '../common/SearchBar.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
+import { notificationService } from '../../services/notificationService.js';
 
 /**
  * KnowASport Navbar
@@ -17,8 +18,12 @@ import { useAuth } from '../../hooks/useAuth.js';
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [scrolled, setScrolled] = useState(false);
   const profileRef = useRef(null);
+  const notifRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -26,10 +31,41 @@ export default function Navbar() {
   const { user, profile, isAuthenticated, signOut } = useAuth();
   const role = profile?.role || 'user'; // 'user' | 'organizer' | 'admin'
 
+  // Fetch notifications
+  useEffect(() => {
+    let active = true;
+
+    async function fetchNotifs() {
+      if (!user) {
+        setNotifications([]);
+        setUnreadCount(0);
+        return;
+      }
+
+      try {
+        const list = await notificationService.getUserNotifications(user.id, { limit: 10 });
+        const count = await notificationService.getUnreadCount(user.id);
+        if (active) {
+          setNotifications(list || []);
+          setUnreadCount(count || 0);
+        }
+      } catch (e) {
+        console.warn('Navbar notification fetch warning:', e.message);
+      }
+    }
+
+    fetchNotifs();
+
+    return () => {
+      active = false;
+    };
+  }, [user, location.pathname]);
+
   // Close mobile menu on route change
   useEffect(() => {
     setMobileOpen(false);
     setProfileOpen(false);
+    setNotifOpen(false);
   }, [location.pathname]);
 
   // Scroll shadow
@@ -41,16 +77,43 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Close profile dropdown on outside click
+  // Close profile and notification dropdowns on outside click
   useEffect(() => {
     function onOutsideClick(e) {
       if (profileRef.current && !profileRef.current.contains(e.target)) {
         setProfileOpen(false);
       }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false);
+      }
     }
     document.addEventListener('mousedown', onOutsideClick);
     return () => document.removeEventListener('mousedown', onOutsideClick);
   }, []);
+
+  const handleMarkAllAsRead = async () => {
+    if (!user) return;
+    await notificationService.markAllAsRead(user.id);
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setUnreadCount(0);
+  };
+
+  const handleNotificationClick = async (n) => {
+    if (!n.read && user) {
+      await notificationService.markAsRead(n.id, user.id);
+      setNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, read: true } : item)));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    }
+    setNotifOpen(false);
+
+    if (n.related_type === 'event' && n.related_id) {
+      navigate(`/events/${n.related_id}`);
+    } else if (n.related_type === 'registration') {
+      navigate('/my-registrations');
+    } else if (n.related_type === 'organizer') {
+      navigate('/organizer/dashboard');
+    }
+  };
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -147,14 +210,94 @@ export default function Navbar() {
                     </Button>
                   )}
 
-                  {/* Notifications */}
-                  <button
-                    className="hidden sm:flex w-9 h-9 rounded-[8px] items-center justify-center text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 transition-colors relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
-                    aria-label="Notifications"
-                  >
-                    <Bell size={18} />
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" aria-hidden />
-                  </button>
+                  {/* Notifications Dropdown */}
+                  <div className="relative" ref={notifRef}>
+                    <button
+                      onClick={() => setNotifOpen((o) => !o)}
+                      className="hidden sm:flex w-9 h-9 rounded-[8px] items-center justify-center text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                      aria-label="Notifications"
+                      aria-expanded={notifOpen}
+                    >
+                      <Bell size={18} />
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-800 flex items-center justify-center border-2 border-white shadow-xs">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
+
+                    <AnimatePresence>
+                      {notifOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 6, scale: 0.96 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white border border-neutral-200 rounded-[14px] shadow-xl overflow-hidden z-50"
+                        >
+                          <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
+                            <div className="flex items-center gap-2">
+                              <span className="font-800 text-xs text-neutral-900 uppercase tracking-wide">Notifications</span>
+                              {unreadCount > 0 && (
+                                <span className="bg-amber-100 text-amber-900 text-[10px] font-800 px-1.5 py-0.5 rounded-full">
+                                  {unreadCount} new
+                                </span>
+                              )}
+                            </div>
+
+                            {unreadCount > 0 && (
+                              <button
+                                onClick={handleMarkAllAsRead}
+                                className="text-[11px] font-700 text-amber-600 hover:text-amber-800 flex items-center gap-1"
+                              >
+                                <CheckCheck size={13} />
+                                Mark all as read
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="max-h-80 overflow-y-auto divide-y divide-neutral-100">
+                            {notifications.length > 0 ? (
+                              notifications.map((n) => (
+                                <div
+                                  key={n.id}
+                                  onClick={() => handleNotificationClick(n)}
+                                  className={`p-3.5 transition-colors cursor-pointer text-left flex items-start gap-3 hover:bg-neutral-50 ${
+                                    !n.read ? 'bg-amber-50/50' : 'bg-white'
+                                  }`}
+                                >
+                                  <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!n.read ? 'bg-amber-500' : 'bg-transparent'}`} />
+                                  <div className="flex-1 min-w-0 space-y-0.5">
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-xs font-800 text-neutral-900 truncate">{n.title}</p>
+                                      <span className="text-[10px] text-neutral-400 font-500 ml-2 flex-shrink-0">
+                                        {new Date(n.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-neutral-600 leading-snug line-clamp-2">{n.message}</p>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="p-6 text-center text-xs text-neutral-500">
+                                You're all caught up.
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="border-t border-neutral-100 bg-neutral-50 p-2 text-center">
+                            <Link
+                              to="/notifications"
+                              onClick={() => setNotifOpen(false)}
+                              className="text-xs font-700 text-amber-700 hover:text-amber-900 block py-1"
+                            >
+                              View All Notifications →
+                            </Link>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
                   {/* Profile dropdown */}
                   <div className="relative" ref={profileRef}>
