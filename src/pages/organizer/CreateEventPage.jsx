@@ -29,8 +29,8 @@ export default function CreateEventPage() {
     venue_name: '',
     city_name: 'Coimbatore',
     district_name: 'Coimbatore',
-    participation_type: 'team',
-    team_size: 7,
+    participation_type: 'individual', // Default strictly set to individual
+    team_size: 1,
     entry_fee: 499,
     max_participants: 200,
     image_url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&auto=format&fit=crop&q=80',
@@ -57,6 +57,10 @@ export default function CreateEventPage() {
     if (step === 3) {
       if (!formData.venue_name.trim()) {
         setError('Please enter venue name.');
+        return;
+      }
+      if (!formData.participation_type) {
+        setError('Please select a participation type.');
         return;
       }
     }
@@ -98,56 +102,47 @@ export default function CreateEventPage() {
 
   if (submittedStatus) {
     return (
-      <div className="kas-container py-16 max-w-lg mx-auto text-center space-y-6">
-        <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
+      <div className="kas-container py-16 text-center space-y-6 max-w-lg">
+        <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto">
           <CheckCircle2 size={36} />
         </div>
 
-        <div className="space-y-2">
-          <Badge variant={submittedStatus === 'pending_review' ? 'warning' : 'neutral'} size="md">
-            {submittedStatus === 'pending_review' ? 'PENDING ADMIN REVIEW' : 'SAVED AS DRAFT'}
-          </Badge>
-          <h1 className="text-2xl sm:text-3xl font-800 text-neutral-900 tracking-tight">
-            {submittedStatus === 'pending_review' ? 'Event Submitted for Approval' : 'Event Draft Saved'}
-          </h1>
-          <p className="text-sm text-neutral-600 max-w-sm mx-auto">
-            {submittedStatus === 'pending_review'
-              ? 'Your tournament details have been submitted. Once approved by Admin, it will be published across Tamil Nadu.'
-              : 'Your draft has been saved. You can edit and submit it anytime from your dashboard.'}
-          </p>
-        </div>
+        <h2 className="text-2xl font-800 text-neutral-900">
+          {submittedStatus === 'draft' ? 'Tournament Saved as Draft' : 'Submitted for Approval'}
+        </h2>
 
-        <Button size="md" onClick={() => navigate('/organizer/dashboard')}>
-          Go to Organizer Dashboard
-        </Button>
+        <p className="text-xs text-neutral-600 leading-relaxed">
+          {submittedStatus === 'draft'
+            ? 'Your event draft has been saved. You can publish or submit it for admin review anytime.'
+            : 'Your sports event has been submitted to KnowASport Admin for review. Once verified, it will be published to public discovery.'}
+        </p>
+
+        <div className="flex justify-center gap-3 pt-2">
+          <Button variant="outline" size="sm" onClick={() => navigate('/organizer/dashboard')}>
+            Organizer Dashboard
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => navigate('/events')}>
+            View Public Events
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="kas-container py-8 lg:py-12 max-w-3xl space-y-8">
-      {/* Top Bar */}
+    <div className="kas-container py-8 lg:py-12 space-y-8 max-w-3xl">
       <div className="flex items-center justify-between border-b border-neutral-200 pb-4">
-        <Link
-          to="/organizer/dashboard"
-          className="inline-flex items-center gap-1.5 text-xs font-700 text-neutral-600 hover:text-neutral-900 transition-colors"
-        >
-          <ArrowLeft size={16} /> Back to Dashboard
+        <div>
+          <span className="text-xs font-800 text-amber-600 uppercase tracking-widest block">Organizer Platform</span>
+          <h1 className="text-2xl sm:text-3xl font-800 text-neutral-900 tracking-tight">Create Sports Event</h1>
+        </div>
+
+        <Link to="/organizer/dashboard" className="text-xs font-700 text-neutral-600 hover:text-neutral-900 flex items-center gap-1">
+          <ArrowLeft size={16} /> Dashboard
         </Link>
-        <span className="text-xs font-700 text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-[6px]">
-          Create Tournament
-        </span>
       </div>
 
-      {/* Title */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-800 text-neutral-900 tracking-tight">
-          Create Sports Event
-        </h1>
-        <p className="text-sm text-neutral-500">Configure tournament dates, venue, pricing, and squad sizes.</p>
-      </div>
-
-      {/* Progress */}
+      {/* Progress Bar */}
       <div className="flex items-center justify-between relative max-w-md mx-auto">
         <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-neutral-200 z-0" />
         <div
@@ -248,43 +243,35 @@ export default function CreateEventPage() {
               label="Tournament Start Date"
               type="date"
               value={formData.start_date}
-              onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, start_date: e.target.value, end_date: e.target.value })}
               required
             />
 
             <Input
-              label="Tournament End Date"
+              label="Registration Deadline"
               type="date"
-              value={formData.end_date}
-              onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+              value={formData.registration_deadline}
+              onChange={(e) => setFormData({ ...formData, registration_deadline: e.target.value })}
               required
             />
           </div>
-
-          <Input
-            label="Registration Deadline"
-            type="date"
-            value={formData.registration_deadline}
-            onChange={(e) => setFormData({ ...formData, registration_deadline: e.target.value })}
-            required
-          />
 
           <div className="pt-4 border-t border-neutral-100 flex justify-between">
             <Button variant="ghost" size="md" onClick={() => setStep(1)} icon={<ArrowLeft size={16} />}>
               Back
             </Button>
             <Button type="submit" variant="primary" size="lg" icon={<ArrowRight size={18} />} iconPosition="right">
-              Next: Location & Venue
+              Next: Venue & Participation
             </Button>
           </div>
         </motion.form>
       )}
 
-      {/* STEP 3: LOCATION & PRICING */}
+      {/* STEP 3: VENUE & STRICT MUTUALLY EXCLUSIVE PARTICIPATION MODEL */}
       {step === 3 && (
         <motion.form initial={{ opacity: 0 }} animate={{ opacity: 1 }} onSubmit={handleNext} className="bg-white rounded-[16px] border border-neutral-200 p-6 sm:p-8 space-y-6 shadow-sm">
           <h3 className="font-800 text-neutral-900 text-base border-b border-neutral-100 pb-3">
-            3. Venue Location & Format
+            3. Venue & Participation Format
           </h3>
 
           <Input
@@ -295,33 +282,79 @@ export default function CreateEventPage() {
             required
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-700 text-neutral-700 block">City</label>
-              <select
-                value={formData.city_name}
-                onChange={(e) => setFormData({ ...formData, city_name: e.target.value })}
-                className="w-full bg-neutral-50 border border-neutral-200 rounded-[8px] px-3.5 py-2.5 text-sm text-neutral-900 focus:ring-2 focus:ring-amber-500"
-              >
-                {MAJOR_CITIES.map((c) => (
-                  <option key={c.name} value={c.name}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-700 text-neutral-700 block">Participation Format</label>
-              <select
-                value={formData.participation_type}
-                onChange={(e) => setFormData({ ...formData, participation_type: e.target.value })}
-                className="w-full bg-neutral-50 border border-neutral-200 rounded-[8px] px-3.5 py-2.5 text-sm text-neutral-900 focus:ring-2 focus:ring-amber-500"
-              >
-                <option value="individual">Individual</option>
-                <option value="team">Team</option>
-                <option value="both">Both Individual & Team</option>
-              </select>
-            </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-700 text-neutral-700 block">City</label>
+            <select
+              value={formData.city_name}
+              onChange={(e) => setFormData({ ...formData, city_name: e.target.value })}
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-[8px] px-3.5 py-2.5 text-sm text-neutral-900 focus:ring-2 focus:ring-amber-500"
+            >
+              {MAJOR_CITIES.map((c) => (
+                <option key={c.name} value={c.name}>{c.name}</option>
+              ))}
+            </select>
           </div>
+
+          {/* STRICT MUTUALLY EXCLUSIVE PARTICIPATION MODEL RADIO BUTTONS */}
+          <div className="space-y-2 pt-2">
+            <label className="text-xs font-700 text-neutral-800 block">Participation Type *</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className={`p-4 rounded-[12px] border flex items-start gap-3 cursor-pointer transition-colors ${
+                formData.participation_type === 'individual' ? 'bg-amber-50 border-amber-400 text-amber-950 font-800' : 'bg-neutral-50 border-neutral-200 text-neutral-700 font-600'
+              }`}>
+                <input
+                  type="radio"
+                  name="participation_type"
+                  value="individual"
+                  checked={formData.participation_type === 'individual'}
+                  onChange={() => setFormData({ ...formData, participation_type: 'individual', team_size: 1 })}
+                  className="mt-0.5 text-amber-500 focus:ring-amber-500"
+                />
+                <div>
+                  <span className="text-xs font-800 text-neutral-900 block">○ Individual Event</span>
+                  <span className="text-[11px] text-neutral-500 block font-normal mt-0.5">Single athlete entries (e.g. Singles Badminton, Marathon, Chess)</span>
+                </div>
+              </label>
+
+              <label className={`p-4 rounded-[12px] border flex items-start gap-3 cursor-pointer transition-colors ${
+                formData.participation_type === 'team' ? 'bg-amber-50 border-amber-400 text-amber-950 font-800' : 'bg-neutral-50 border-neutral-200 text-neutral-700 font-600'
+              }`}>
+                <input
+                  type="radio"
+                  name="participation_type"
+                  value="team"
+                  checked={formData.participation_type === 'team'}
+                  onChange={() => setFormData({ ...formData, participation_type: 'team', team_size: formData.team_size > 1 ? formData.team_size : 7 })}
+                  className="mt-0.5 text-amber-500 focus:ring-amber-500"
+                />
+                <div>
+                  <span className="text-xs font-800 text-neutral-900 block">○ Team Event</span>
+                  <span className="text-[11px] text-neutral-500 block font-normal mt-0.5">Club or squad entries (e.g. Football, Cricket, Volleyball)</span>
+                </div>
+              </label>
+            </div>
+            <p className="text-[11px] text-neutral-500 leading-relaxed pt-1">
+              Each event supports one participation type. If you offer both individual and team competitions, create separate events.
+            </p>
+          </div>
+
+          {/* DYNAMIC FORM REACTION: Show Team Specs ONLY for Team Events */}
+          {formData.participation_type === 'team' && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="p-4 rounded-[12px] bg-amber-50/50 border border-amber-200/80 space-y-3">
+              <Input
+                label="Team Squad Size (Players per Team)"
+                type="number"
+                min="2"
+                max="30"
+                value={formData.team_size}
+                onChange={(e) => setFormData({ ...formData, team_size: Number(e.target.value) })}
+                required
+              />
+              <span className="text-[11px] text-amber-900 block font-600">
+                Team size specifies maximum registered squad players per team entry.
+              </span>
+            </motion.div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
@@ -335,7 +368,7 @@ export default function CreateEventPage() {
             />
 
             <Input
-              label="Maximum Capacity / Players"
+              label={formData.participation_type === 'team' ? 'Maximum Team Capacity' : 'Maximum Participant Capacity'}
               type="number"
               min="1"
               value={formData.max_participants}
@@ -356,7 +389,7 @@ export default function CreateEventPage() {
               <span className="text-xs font-700 text-neutral-900">Require Event Entry Check-In at Venue</span>
             </label>
             <p className="text-[11px] text-neutral-500 pl-7 leading-relaxed">
-              When enabled, athletes receive a digital QR ticket for scanner verification. If disabled, participants can attend freely after registration without QR check-in.
+              When enabled, athletes receive a digital QR ticket for scanner verification.
             </p>
           </div>
 
@@ -378,52 +411,44 @@ export default function CreateEventPage() {
             4. Review & Event Submission
           </h3>
 
-          <div className="p-4 rounded-[12px] bg-neutral-50 border border-neutral-200 space-y-2 text-xs text-neutral-700">
-            <div className="flex justify-between py-1 border-b border-neutral-200/60">
-              <span className="font-600">Title</span>
+          <div className="bg-neutral-50 p-5 rounded-[12px] border border-neutral-200 space-y-3 text-xs">
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Tournament Title:</span>
               <span className="font-800 text-neutral-900">{formData.title}</span>
             </div>
-            <div className="flex justify-between py-1 border-b border-neutral-200/60">
-              <span className="font-600">Sport & Type</span>
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Sport & Type:</span>
               <span className="font-700 text-neutral-900">{formData.sport_name} ({formData.event_type_name})</span>
             </div>
-            <div className="flex justify-between py-1 border-b border-neutral-200/60">
-              <span className="font-600">Dates</span>
-              <span className="font-700 text-neutral-900">{formData.start_date} to {formData.end_date}</span>
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Participation Model:</span>
+              <span className="font-800 text-amber-700 uppercase bg-amber-100 px-2 py-0.5 rounded">
+                {formData.participation_type === 'team' ? `TEAM (${formData.team_size} Players)` : 'INDIVIDUAL'}
+              </span>
             </div>
-            <div className="flex justify-between py-1 border-b border-neutral-200/60">
-              <span className="font-600">Venue</span>
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Venue & City:</span>
               <span className="font-700 text-neutral-900">{formData.venue_name}, {formData.city_name}</span>
             </div>
-            <div className="flex justify-between py-1">
-              <span className="font-600">Entry Fee</span>
-              <span className="font-800 text-neutral-900">{formData.entry_fee === 0 ? 'Free' : `₹${formData.entry_fee}`}</span>
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Entry Fee:</span>
+              <span className="font-800 text-neutral-900">₹{formData.entry_fee}</span>
             </div>
           </div>
 
           <div className="pt-4 border-t border-neutral-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <Button
-              variant="outline"
-              size="md"
-              fullWidth
-              loading={isSubmitting}
-              disabled={isSubmitting}
-              onClick={handleSaveDraft}
-            >
-              Save Draft
+            <Button variant="ghost" size="md" onClick={() => setStep(3)} icon={<ArrowLeft size={16} />}>
+              Back to Specs
             </Button>
 
-            <Button
-              variant="primary"
-              size="md"
-              fullWidth
-              loading={isSubmitting}
-              disabled={isSubmitting}
-              onClick={handleSubmitForReview}
-              icon={<ShieldCheck size={18} />}
-            >
-              Submit for Admin Review
-            </Button>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <Button variant="outline" size="md" onClick={handleSaveDraft} disabled={isSubmitting} className="flex-1 sm:flex-none">
+                Save Draft
+              </Button>
+              <Button variant="primary" size="lg" onClick={handleSubmitForReview} disabled={isSubmitting} className="flex-1 sm:flex-none font-800">
+                Submit for Approval
+              </Button>
+            </div>
           </div>
         </motion.div>
       )}

@@ -132,8 +132,8 @@ export default function EventDetailPage() {
                       <User size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
                     )}
                     <div>
-                      <span className="font-700 text-neutral-900 block capitalize">
-                        {pType === 'team' ? `Team Event (${teamSize || 7} Players)` : pType === 'both' ? 'Individual + Team Event' : 'Individual Event'}
+                      <span className="font-700 text-neutral-900 block uppercase">
+                        {pType === 'team' ? `Team Event (${teamSize || 7} Players)` : 'Individual Event'}
                       </span>
                       <span className="text-xs text-neutral-500">Participation Format</span>
                     </div>

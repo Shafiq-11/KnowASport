@@ -51,24 +51,16 @@ export default function EventCard({ event, onSaveToggle, isSaved = false }) {
 
     if (pType === 'team') {
       return (
-        <div className="flex items-center gap-1 text-[12px] font-600 text-neutral-600">
+        <div className="flex items-center gap-1 text-[12px] font-700 text-amber-700 bg-amber-50 px-2 py-0.5 rounded-[4px]">
           <Users size={13} className="text-amber-600 flex-shrink-0" />
-          <span>Team {teamSize ? `· ${teamSize} Players` : ''}</span>
-        </div>
-      );
-    }
-    if (pType === 'both') {
-      return (
-        <div className="flex items-center gap-1 text-[12px] font-600 text-neutral-600">
-          <User size={13} className="text-amber-600 flex-shrink-0" />
-          <span>Individual + Team</span>
+          <span>TEAM {teamSize ? `(${teamSize} Players)` : ''}</span>
         </div>
       );
     }
     return (
-      <div className="flex items-center gap-1 text-[12px] font-600 text-neutral-600">
-        <User size={13} className="text-amber-600 flex-shrink-0" />
-        <span>Individual</span>
+      <div className="flex items-center gap-1 text-[12px] font-700 text-neutral-700 bg-neutral-100 px-2 py-0.5 rounded-[4px]">
+        <User size={13} className="text-neutral-500 flex-shrink-0" />
+        <span>INDIVIDUAL</span>
       </div>
     );
   };

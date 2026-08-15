@@ -109,7 +109,7 @@ export default function AdminEventsPage() {
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-neutral-700">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs text-neutral-700">
                 <div>
                   <span className="font-600 text-neutral-400 block">Dates</span>
                   <span className="font-700 text-neutral-900">{formatDateShort(evt.start_date)}</span>
@@ -119,9 +119,15 @@ export default function AdminEventsPage() {
                   <span className="font-700 text-neutral-900">{evt.venue_name}, {evt.city_name}</span>
                 </div>
                 <div>
+                  <span className="font-600 text-neutral-400 block">Participation Model</span>
+                  <span className="font-800 text-amber-700 uppercase bg-amber-50 px-2 py-0.5 rounded-[4px] inline-block mt-0.5">
+                    {evt.participation_type === 'team' ? `TEAM (${evt.team_size || 7} Players)` : 'INDIVIDUAL'}
+                  </span>
+                </div>
+                <div>
                   <span className="font-600 text-neutral-400 block">Entry Fee & Check-In</span>
                   <span className="font-700 text-neutral-900">
-                    {evt.entry_fee === 0 ? 'Free' : formatPrice(evt.entry_fee)} • {evt.check_in_required !== false ? 'Check-in Required' : 'No Check-in'}
+                    {evt.entry_fee === 0 ? 'Free' : formatPrice(evt.entry_fee)} • {evt.check_in_required !== false ? 'QR Required' : 'No QR'}
                   </span>
                 </div>
               </div>

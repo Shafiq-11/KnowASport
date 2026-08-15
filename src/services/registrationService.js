@@ -36,6 +36,14 @@ export const registrationService = {
       throw new Error('This event has reached maximum capacity.');
     }
 
+    // Authoritative Participation Type Enforcement
+    const authoritativeType = (event.participation_type || 'individual').toLowerCase();
+    const requestedType = (participationType || authoritativeType).toLowerCase();
+
+    if (requestedType !== authoritativeType) {
+      throw new Error(`This event only accepts ${authoritativeType} registrations.`);
+    }
+
     // 2. Check for Duplicate Registration
     const existing = await this.getUserRegistrations(user.id);
     const alreadyRegistered = existing.some((r) => r.event_id === event.id && r.status !== 'cancelled');

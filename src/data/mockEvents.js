@@ -101,7 +101,7 @@ export const MOCK_EVENTS = [
     venue_address: 'VOC Park Grounds, LIC Road, Coimbatore',
     city_name: 'Coimbatore',
     district_name: 'Coimbatore',
-    participation_type: 'both',
+    participation_type: 'individual',
     team_size_min: 1,
     team_size_max: 2,
     current_participants: 124,
