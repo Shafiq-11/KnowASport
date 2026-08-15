@@ -26,7 +26,7 @@ export const adminService = {
     let cancelledRegistrations = 0;
     let totalRegistrationPayments = 0;
     let capturedPayments = 0;
-    let platformFees = 0; // Fee model not configured yet — defaults strictly to 0, no invented fees!
+    let platformFees = 0;
 
     if (!isSupabaseConfigured) {
       const storedRegs = registrationService._getStoredRegistrations();
@@ -45,7 +45,8 @@ export const adminService = {
       try {
         const { count: uCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
         const { count: orgCount } = await supabase.from('organizers').select('*', { count: 'exact', head: true });
-        const { count: vCount } = await supabase.from('organizers').select('*', { count: 'exact', head: true }).eq('verification_status', 'approved');
+        // FIXED: Query verification_status = 'verified' matching DB check constraint
+        const { count: vCount } = await supabase.from('organizers').select('*', { count: 'exact', head: true }).eq('verification_status', 'verified');
         const { count: rCount } = await supabase.from('event_registrations').select('*', { count: 'exact', head: true });
         const { count: confCount } = await supabase.from('event_registrations').select('*', { count: 'exact', head: true }).eq('status', 'confirmed');
         const { count: pendCount } = await supabase.from('event_registrations').select('*', { count: 'exact', head: true }).eq('payment_status', 'pending');
@@ -146,13 +147,14 @@ export const adminService = {
 
       if (appErr) throw appErr;
 
+      // FIXED: verification_status = 'verified' matching DB check constraint IN ('pending', 'verified', 'rejected', 'suspended')
       await supabase.from('organizers').upsert({
         user_id: app.user_id,
         organization_name: app.organization_name,
         organization_type: app.organization_type,
         city_name: app.city_name,
         district_name: app.district_name,
-        verification_status: 'approved',
+        verification_status: 'verified',
       });
 
       return true;
@@ -262,9 +264,10 @@ export const adminService = {
     }
 
     try {
+      // FIXED: Populate rejection_reason matching DB schema
       const { error } = await supabase
         .from('events')
-        .update({ status: 'rejected', changes_requested_reason: reason })
+        .update({ status: 'rejected', rejection_reason: reason })
         .eq('id', eventId);
 
       if (error) throw error;
@@ -462,8 +465,9 @@ export const adminService = {
 
     if (isSupabaseConfigured && adminUserId) {
       try {
+        const isValidUuid = typeof adminUserId === 'string' && /^[0-9a-fA-F-]{36}$/.test(adminUserId);
         await supabase.from('admin_audit_logs').insert({
-          admin_user_id: adminUserId,
+          admin_user_id: isValidUuid ? adminUserId : null,
           action,
           target_type: targetType,
           target_id: targetId,
