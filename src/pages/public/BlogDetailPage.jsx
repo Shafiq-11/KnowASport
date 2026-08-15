@@ -9,6 +9,7 @@ import { SectionSkeleton } from '../../components/common/Skeleton.jsx';
 import { blogService } from '../../services/blogService.js';
 import { useEvents } from '../../hooks/useEvents.js';
 import { formatDate, formatDateShort } from '../../utils/formatters.js';
+import SEOHead from '../../components/common/SEOHead.jsx';
 
 export default function BlogDetailPage() {
   const { slug } = useParams();
@@ -79,9 +80,24 @@ export default function BlogDetailPage() {
 
   return (
     <article className="py-10 lg:py-16 space-y-12">
-      {/* SEO Metadata */}
-      <title>{`${article.title} | KnowASport`}</title>
-      <meta name="description" content={article.excerpt || article.title} />
+      <SEOHead
+        title={`${article.title} | KnowASport`}
+        description={article.excerpt || article.title}
+        ogImage={article.cover_image}
+        ogType="article"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'Article',
+          headline: article.title,
+          description: article.excerpt,
+          image: article.cover_image,
+          datePublished: article.published_at,
+          author: {
+            '@type': 'Organization',
+            name: article.author_name || 'KnowASport Editorial',
+          },
+        }}
+      />
 
       {/* Top Header Section */}
       <div className="kas-container max-w-3xl space-y-6">

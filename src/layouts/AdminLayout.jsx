@@ -5,6 +5,7 @@ import {
   BarChart3, FileText, ChevronLeft, ShieldCheck, LogOut, Newspaper
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
+import SEOHead from '../components/common/SEOHead.jsx';
 
 const navSections = [
   {
@@ -55,6 +56,7 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen flex bg-neutral-950 text-neutral-100 font-sans selection:bg-amber-500 selection:text-white">
+      <SEOHead title="Admin Operations Console | KnowASport" noindex={true} />
       {/* Admin sidebar — dark high-contrast console */}
       <aside className="hidden lg:flex flex-col w-64 bg-neutral-900 border-r border-neutral-800 fixed top-0 bottom-0 left-0 z-30">
         <div className="flex items-center gap-2.5 px-5 h-16 border-b border-neutral-800 flex-shrink-0">

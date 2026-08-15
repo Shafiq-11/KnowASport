@@ -1,3 +1,16 @@
 User-agent: *
+Allow: /
+Allow: /events
+Allow: /blog
+
 Disallow: /admin/
-Disallow: /admin
+Disallow: /dashboard
+Disallow: /organizer/
+Disallow: /profile
+Disallow: /my-registrations
+Disallow: /login
+Disallow: /register
+Disallow: /registration/
+Disallow: /payment/
+
+Sitemap: https://knowasport.com/sitemap.xml

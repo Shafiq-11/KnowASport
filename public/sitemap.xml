@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Core Public Pages -->
+  <url>
+    <loc>https://knowasport.com/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://knowasport.com/events</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://knowasport.com/blog</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Published Public Events Sample Slugs -->
+  <url>
+    <loc>https://knowasport.com/events/coimbatore-open-badminton-championship-2026</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://knowasport.com/events/chennai-turf-football-league-season-4</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://knowasport.com/events/tiruppur-district-open-volleyball-tournament</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://knowasport.com/events/madurai-night-marathon-and-10k-run-2026</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Published Blog Editorial Articles -->
+  <url>
+    <loc>https://knowasport.com/blog/rise-of-turf-football-tournaments-in-chennai</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://knowasport.com/blog/badminton-growth-western-tamil-nadu</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://knowasport.com/blog/grassroots-kabaddi-salem-rural-championships</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+</urlset>

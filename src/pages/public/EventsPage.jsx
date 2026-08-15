@@ -12,6 +12,8 @@ import { useEvents } from '../../hooks/useEvents.js';
 import { SORT_OPTIONS, SPORTS, EVENT_TYPES, MAJOR_CITIES, PRICE_FILTERS } from '../../utils/constants.js';
 import { sectionRevealVariants, staggerItemVariants } from '../../utils/motion.js';
 
+import SEOHead from '../../components/common/SEOHead.jsx';
+
 export default function EventsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
@@ -96,6 +98,10 @@ export default function EventsPage() {
 
   return (
     <div className="kas-container py-8 lg:py-12 space-y-8">
+      <SEOHead
+        title="Sports Events in Tamil Nadu | KnowASport"
+        description="Discover upcoming sports events, tournaments, local competitions and registration opportunities across Tamil Nadu with KnowASport."
+      />
       {/* ── Page Header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-200 pb-6">
         <div>

@@ -8,6 +8,7 @@ import EmptyState from '../../components/common/EmptyState.jsx';
 import { SectionSkeleton } from '../../components/common/Skeleton.jsx';
 import { blogService } from '../../services/blogService.js';
 import { formatDateShort } from '../../utils/formatters.js';
+import SEOHead from '../../components/common/SEOHead.jsx';
 
 const BLOG_CATEGORIES = [
   'All',
@@ -60,8 +61,12 @@ export default function BlogListPage() {
   }, [selectedCategory, searchQuery]);
 
   return (
-    <div className="kas-container py-10 lg:py-16 space-y-12 max-w-6xl">
-      {/* SEO Metadata */}
+    <div className="kas-container py-8 lg:py-12 space-y-10">
+      <SEOHead
+        title="Tamil Nadu Sports News & Updates | KnowASport"
+        description="Latest sports news, tournament updates, local sports coverage, athlete stories and community news from Tamil Nadu."
+      />
+      {/* Page Header */}
       <title>Tamil Nadu Sports News & Editorial | KnowASport</title>
       <meta name="description" content="Read authentic local sports stories, tournament updates, athlete spotlights, and sporting tips across Tamil Nadu." />
 

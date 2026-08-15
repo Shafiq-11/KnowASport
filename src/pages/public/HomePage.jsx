@@ -13,6 +13,7 @@ import { blogService } from '../../services/blogService.js';
 import { useLocationContext } from '../../context/LocationContext.jsx';
 import { SPORTS } from '../../utils/constants.js';
 import { formatDateShort } from '../../utils/formatters.js';
+import SEOHead from '../../components/common/SEOHead.jsx';
 
 export default function HomePage() {
   const navigate = useNavigate();

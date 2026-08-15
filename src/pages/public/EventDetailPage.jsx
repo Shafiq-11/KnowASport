@@ -17,6 +17,7 @@ import {
   getRegistrationDeadlineText, getDeadlineUrgency
 } from '../../utils/formatters.js';
 import { SPORTS } from '../../utils/constants.js';
+import SEOHead from '../../components/common/SEOHead.jsx';
 
 export default function EventDetailPage() {
   const { slug } = useParams();
@@ -43,6 +44,34 @@ export default function EventDetailPage() {
 
   return (
     <div className="pb-24 lg:pb-16 space-y-8">
+      <SEOHead
+        title={`${event.title} | KnowASport`}
+        description={`${event.title} — ${event.sport_name || 'Sports'} tournament in ${event.venue_name}, ${event.city_name}. Date: ${formatDate(event.start_date)}. View details and register on KnowASport.`}
+        ogImage={event.poster_url}
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'SportsEvent',
+          name: event.title,
+          startDate: event.start_date,
+          endDate: event.end_date || event.start_date,
+          location: {
+            '@type': 'Place',
+            name: event.venue_name,
+            address: {
+              '@type': 'PostalAddress',
+              addressLocality: event.city_name,
+              addressRegion: 'Tamil Nadu',
+              addressCountry: 'IN',
+            },
+          },
+          offers: {
+            '@type': 'Offer',
+            price: event.entry_fee || 0,
+            priceCurrency: 'INR',
+            availability: 'https://schema.org/InStock',
+          },
+        }}
+      />
       {/* ── Breadcrumb Header ── */}
       <div className="bg-white border-b border-neutral-200 py-3">
         <div className="kas-container flex items-center gap-2 text-xs font-500 text-neutral-500">
