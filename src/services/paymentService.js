@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { registrationService } from './registrationService.js';
 import { eventService } from './eventService.js';
+import { notificationService } from './notificationService.js';
 
 const LOCAL_PAYMENTS_KEY = 'kas_mock_payments_v1';
 
@@ -120,6 +121,7 @@ export const paymentService = {
 
       // 2. Update Registration Status (status = confirmed, payment_status = paid)
       const storedRegs = registrationService._getStoredRegistrations();
+      const targetReg = storedRegs.find((r) => r.id === registrationId);
       const updatedRegs = storedRegs.map((r) =>
         r.id === registrationId
           ? {
@@ -131,6 +133,30 @@ export const paymentService = {
           : r
       );
       localStorage.setItem('kas_mock_registrations_v1', JSON.stringify(updatedRegs));
+
+      // 3. Trigger Notifications for captured payment
+      if (user && targetReg) {
+        const eventTitle = targetReg.event?.title || 'Tournament';
+        const fee = targetReg.total_fee || targetReg.event?.entry_fee || 0;
+
+        await notificationService.createNotification({
+          userId: user.id,
+          type: 'payment_success',
+          title: 'Payment Successful',
+          message: `Your payment of ₹${fee} for ${eventTitle} was successful.`,
+          relatedType: 'registration',
+          relatedId: registrationId,
+        });
+
+        await notificationService.createNotification({
+          userId: user.id,
+          type: 'registration_confirmed',
+          title: 'Registration Confirmed',
+          message: `Your registration for ${eventTitle} is confirmed.`,
+          relatedType: 'event',
+          relatedId: targetReg.event?.slug || targetReg.event_id,
+        });
+      }
 
       return {
         success: true,

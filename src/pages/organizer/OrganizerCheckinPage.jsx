@@ -155,22 +155,28 @@ export default function OrganizerCheckinPage() {
         </div>
 
         {/* Counter Pills */}
-        <div className="grid grid-cols-3 gap-3 pt-3 border-t border-navy-800 text-center">
-          <div className="bg-navy-900 p-2.5 rounded-[10px] border border-navy-800">
-            <span className="text-xs text-neutral-400 block font-600">Total</span>
-            <span className="text-lg font-800 text-white">{stats.total}</span>
-          </div>
+        {event?.check_in_required !== false ? (
+          <div className="grid grid-cols-3 gap-3 pt-3 border-t border-navy-800 text-center">
+            <div className="bg-navy-900 p-2.5 rounded-[10px] border border-navy-800">
+              <span className="text-xs text-neutral-400 block font-600">Total</span>
+              <span className="text-lg font-800 text-white">{stats.total}</span>
+            </div>
 
-          <div className="bg-green-950/80 p-2.5 rounded-[10px] border border-green-800 text-green-400">
-            <span className="text-xs text-green-400 block font-600">Checked In</span>
-            <span className="text-lg font-800 text-white">{stats.checkedIn}</span>
-          </div>
+            <div className="bg-green-950/80 p-2.5 rounded-[10px] border border-green-800 text-green-400">
+              <span className="text-xs text-green-400 block font-600">Checked In</span>
+              <span className="text-lg font-800 text-white">{stats.checkedIn}</span>
+            </div>
 
-          <div className="bg-navy-900 p-2.5 rounded-[10px] border border-navy-800">
-            <span className="text-xs text-neutral-400 block font-600">Remaining</span>
-            <span className="text-lg font-800 text-amber-400">{stats.remaining}</span>
+            <div className="bg-navy-900 p-2.5 rounded-[10px] border border-navy-800">
+              <span className="text-xs text-neutral-400 block font-600">Remaining</span>
+              <span className="text-lg font-800 text-amber-400">{stats.remaining}</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="pt-3 border-t border-navy-800 text-center text-xs font-700 text-amber-400">
+            Check-In Not Required for this Event
+          </div>
+        )}
       </div>
 
       {/* ── Main Scan & Entry Actions ── */}

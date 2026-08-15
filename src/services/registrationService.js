@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { eventService } from './eventService.js';
 import { notificationService } from './notificationService.js';
+import { parseDateSafe } from '../utils/formatters.js';
 
 const LOCAL_REGISTRATIONS_KEY = 'kas_mock_registrations_v1';
 
@@ -25,10 +26,10 @@ export const registrationService = {
       throw new Error('This event is not open for registration.');
     }
 
-    // Check deadline
+    // Check deadline using safe IST date parsing
     const now = new Date();
-    const deadline = new Date(event.registration_deadline);
-    if (now > deadline) {
+    const deadline = parseDateSafe(event.registration_deadline, true);
+    if (deadline && now > deadline) {
       throw new Error('Registration for this event has closed.');
     }
 

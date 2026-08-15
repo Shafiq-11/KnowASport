@@ -106,7 +106,9 @@ export const organizerService = {
     if (!userId) return { totalEvents: 0, publishedEvents: 0, totalRegistrations: 0, checkedInCount: 0, totalRevenue: 0, events: [] };
 
     const allRes = await eventService.getEvents({ limit: 100 });
-    const organizerEvents = allRes.events || [];
+    const organizerEvents = (allRes.events || []).filter(
+      (e) => e.organizer_id === userId || e.user_id === userId || e.organizer?.user_id === userId || (!e.organizer_id && !e.user_id)
+    );
 
     let totalRegistrations = 0;
     let checkedInCount = 0;
