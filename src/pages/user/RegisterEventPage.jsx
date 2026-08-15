@@ -412,11 +412,26 @@ export default function RegisterEventPage() {
                   {selectedFormat === 'team' ? `Team (${teamName})` : 'Individual'}
                 </span>
               </div>
-              <div className="flex justify-between py-1">
-                <span className="font-600">Entry Fee</span>
-                <span className="font-800 text-base text-neutral-900">
-                  {isFree ? <span className="text-green-600 font-700">Free</span> : formatPrice(event.entry_fee)}
-                </span>
+              {/* Price Transparency Breakdown */}
+              <div className="pt-2 space-y-2 border-t border-neutral-200/80">
+                <div className="flex justify-between text-xs py-1">
+                  <span className="font-600 text-neutral-600">Event Registration Fee</span>
+                  <span className="font-700 text-neutral-900">
+                    {isFree ? <span className="text-green-600 font-700">Free</span> : formatPrice(event.entry_fee)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs py-1">
+                  <span className="font-600 text-neutral-600">Platform & Processing Fee</span>
+                  <span className="font-700 text-neutral-900">
+                    {isFree ? <span className="text-green-600 font-700">₹0</span> : '₹20'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm py-2 border-t border-neutral-200 font-800 text-neutral-900">
+                  <span>Total Amount</span>
+                  <span className="text-amber-700">
+                    {isFree ? <span className="text-green-600">Free (₹0)</span> : formatPrice(Number(event.entry_fee || 0) + 20)}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -425,7 +440,7 @@ export default function RegisterEventPage() {
               {isFree ? (
                 <span>✓ Free Registration — Your spot will be instantly confirmed upon submission.</span>
               ) : (
-                <span>ℹ Registration Created — Payment of {formatPrice(event.entry_fee)} is required to confirm participation.</span>
+                <span>ℹ Registration Review — Total payable amount includes {formatPrice(event.entry_fee)} entry fee + ₹20 platform fee.</span>
               )}
             </div>
 

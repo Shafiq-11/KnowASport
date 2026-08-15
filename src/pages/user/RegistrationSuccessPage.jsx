@@ -155,11 +155,15 @@ export default function RegistrationSuccessPage() {
               <QRCodeSVG value={qrToken} size={140} fgColor="#080C18" level="M" />
             </div>
             <div>
-              <p className="text-xs font-700 text-neutral-900">Show this QR Code at event check-in</p>
-              <p className="text-[11px] text-neutral-500">
-                {isConfirmed
-                  ? 'Organizers can scan this QR code or enter Registration ID at the venue entrance.'
-                  : 'Check-in requires completed payment verification.'}
+              <p className="text-xs font-700 text-neutral-900">
+                {registration.event?.check_in_required !== false
+                  ? 'Venue Check-In Required'
+                  : 'No Venue Check-In Required'}
+              </p>
+              <p className="text-[11px] text-neutral-500 mt-0.5">
+                {registration.event?.check_in_required !== false
+                  ? 'Present this QR code or Registration ID at the venue reporting desk for entry.'
+                  : 'Direct entry confirmed. Show this digital pass if requested at the venue.'}
               </p>
             </div>
           </div>
