@@ -233,7 +233,7 @@ export default function OrganizerCheckinPage() {
         {/* Divider */}
         <div className="flex items-center gap-3 text-xs text-neutral-400 font-600">
           <div className="flex-1 h-px bg-neutral-200" />
-          <span>OR ENTER REGISTRATION ID</span>
+          <span>OR ENTER PASS CODE / REGISTRATION ID</span>
           <div className="flex-1 h-px bg-neutral-200" />
         </div>
 
@@ -247,7 +247,7 @@ export default function OrganizerCheckinPage() {
         >
           <div className="flex-1">
             <Input
-              placeholder="e.g. KAS-2026-000124"
+              placeholder="e.g. KAS7X92P or KAS-2026-000124"
               value={manualCode}
               onChange={(e) => setManualCode(e.target.value)}
               inputClassName="font-mono font-700 uppercase"

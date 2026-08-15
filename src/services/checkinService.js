@@ -6,7 +6,7 @@ const LOCAL_CHECKINS_KEY = 'kas_mock_checkins_v1';
 
 export const checkinService = {
   /**
-   * Get all events managed by an organizer (or all published events in dev fallback)
+   * Get all events managed by an organizer
    */
   async getOrganizerEvents(userId) {
     if (!userId) return [];
@@ -69,11 +69,12 @@ export const checkinService = {
   },
 
   /**
-   * Verify QR token or Registration Code against event rules and security checks
+   * Verify QR token or Manual Pass Code / Registration Number
+   * Safe for venue verification without exposing sensitive athlete PII.
    */
   async verifyRegistrationCode({ eventId, codeOrToken, userId }) {
     if (!codeOrToken || !eventId) {
-      return { status: 'INVALID', message: 'No registration code provided.' };
+      return { status: 'INVALID', message: 'No registration pass code provided.' };
     }
 
     const cleanInput = codeOrToken.trim().toUpperCase();
@@ -83,23 +84,42 @@ export const checkinService = {
 
     if (!isSupabaseConfigured) {
       const stored = registrationService._getStoredRegistrations();
-      registration = stored.find(
-        (r) =>
-          r.registration_number?.toUpperCase() === cleanInput ||
-          r.qr_token?.toUpperCase() === cleanInput ||
-          `KAS-V-${r.id}`.toUpperCase() === cleanInput
-      );
+      registration = stored.find((r) => {
+        const passCode = (r.pass_code || ('KAS' + (r.id.replace(/[^a-zA-Z0-9]/g, '').slice(-5).toUpperCase() || '7X92P'))).toUpperCase();
+        const regNum = (r.registration_number || '').toUpperCase();
+        const qrTok = (r.qr_token || `KAS-QR-${passCode}-${regNum.replace(/[^0-9]/g, '')}`).toUpperCase();
+        const legacyTok = `KAS-V-${r.id}`.toUpperCase();
+
+        return (
+          passCode === cleanInput ||
+          regNum === cleanInput ||
+          qrTok === cleanInput ||
+          legacyTok === cleanInput
+        );
+      });
     } else {
       try {
         const { data, error } = await supabase
           .from('event_registrations')
           .select(`
-            *,
-            event:events(*),
-            participants:registration_participants(*)
+            id,
+            registration_number,
+            pass_code,
+            qr_token,
+            event_id,
+            participation_type,
+            team_name,
+            team_size,
+            status,
+            payment_status,
+            checkin_status,
+            checked_in_at,
+            created_at,
+            event:events(id, title, sport_name, check_in_required, venue_name, city_name),
+            participants:registration_participants(id, full_name, player_role, player_number)
           `)
-          .or(`registration_number.eq.${cleanInput},qr_token.eq.${cleanInput}`)
-          .single();
+          .or(`pass_code.eq.${cleanInput},registration_number.eq.${cleanInput},qr_token.eq.${cleanInput}`)
+          .maybeSingle();
 
         if (!error && data) registration = data;
       } catch (e) {
@@ -107,20 +127,20 @@ export const checkinService = {
       }
     }
 
-    // 2. Perform Strict Validation Rules
+    // 2. Perform Validation Rules
     if (!registration) {
       return {
         status: 'INVALID',
-        message: 'Registration not found. Verify the code and try again.',
+        message: 'Registration Not Found. Verify the pass code and try again.',
       };
     }
 
-    // Check Event Match
+    // Check Event Match (Reject cross-event check-ins)
     if (registration.event_id !== eventId && registration.event?.id !== eventId) {
       return {
         status: 'WRONG_EVENT',
         registration,
-        message: `This registration belongs to "${registration.event?.title || 'another event'}".`,
+        message: 'This registration is not valid for this event.',
       };
     }
 
@@ -129,7 +149,7 @@ export const checkinService = {
       return {
         status: 'NOT_REQUIRED',
         registration,
-        message: 'Check-in is not required or enabled for this tournament event.',
+        message: 'Check-in is not required for this event. Direct entry is confirmed.',
       };
     }
 
@@ -147,16 +167,19 @@ export const checkinService = {
       return {
         status: 'PAYMENT_REQUIRED',
         registration,
-        message: 'Payment has not been completed. Entry requires paid status.',
+        message: 'Payment has not been completed. Entry requires confirmed status.',
       };
     }
 
-    // Check if Already Checked In
+    // Check if Already Checked In (Prevent duplicate check-in)
     if (registration.checkin_status === 'checked_in') {
+      const checkinTime = registration.checked_in_at
+        ? new Date(registration.checked_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : 'Earlier';
       return {
         status: 'ALREADY_CHECKED_IN',
         registration,
-        message: `Already checked in at ${new Date(registration.checked_in_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`,
+        message: `Already Checked In at ${checkinTime}.`,
       };
     }
 
@@ -164,7 +187,7 @@ export const checkinService = {
     return {
       status: 'VALID',
       registration,
-      message: 'Registration verified. Ready for check-in confirmation.',
+      message: 'Registration pass verified. Ready for check-in confirmation.',
     };
   },
 
@@ -218,7 +241,7 @@ export const checkinService = {
           event_id: eventId,
           checked_in_by: userId,
           checked_in_at: checkedInAt,
-          verification_token: reg.qr_token || reg.registration_number,
+          verification_token: reg.pass_code || reg.qr_token || reg.registration_number,
         })
         .select()
         .single();
@@ -248,7 +271,7 @@ export const checkinService = {
         .from('registration_checkins')
         .select(`
           *,
-          registration:event_registrations(*, participants:registration_participants(*))
+          registration:event_registrations(id, registration_number, pass_code, participation_type, team_name, participants:registration_participants(id, full_name, player_role))
         `)
         .eq('event_id', eventId)
         .order('checked_in_at', { ascending: false })
