@@ -57,9 +57,22 @@ export default function EventsPage() {
 
   // Simulate fast loading skeleton on filter changes
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 250);
+    const timer = setTimeout(() => setIsLoading(false), 150);
     return () => clearTimeout(timer);
   }, [sportFilter, eventTypeFilter, cityFilter, dateFilter, priceFilter, participationFilter, searchQuery, sortBy]);
+
+  // Sync URL search params with state when searchParams changes
+  useEffect(() => {
+    const sportParam = searchParams.get('sport') || 'all';
+    const typeParam = searchParams.get('eventType') || searchParams.get('type') || 'all';
+    const qParam = searchParams.get('q') || '';
+    const cityParam = searchParams.get('city') || 'all';
+
+    if (sportParam !== sportFilter) setSportFilter(sportParam);
+    if (typeParam !== eventTypeFilter) setEventTypeFilter(typeParam);
+    if (qParam !== searchQuery) setSearchQuery(qParam);
+    if (cityParam !== cityFilter) setCityFilter(cityParam);
+  }, [searchParams]);
 
   // Synchronize URL search params with filter changes
   useEffect(() => {

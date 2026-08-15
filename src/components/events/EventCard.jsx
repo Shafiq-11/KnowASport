@@ -8,6 +8,7 @@ import {
   formatDateShort,
   getRegistrationDeadlineText,
   getDeadlineUrgency,
+  isRegistrationOpen,
 } from '../../utils/formatters.js';
 import { SPORTS } from '../../utils/constants.js';
 
@@ -27,7 +28,7 @@ export default function EventCard({ event, onSaveToggle, isSaved = false }) {
   const deadlineText = getRegistrationDeadlineText(event.registration_deadline);
   const urgency = getDeadlineUrgency(event.registration_deadline);
   const isFree = !event.entry_fee || event.entry_fee === 0;
-  const registrationClosed = urgency === 'closed';
+  const registrationClosed = !isRegistrationOpen(event);
 
   const urgencyStyles = {
     critical: 'text-red-600 bg-red-50',

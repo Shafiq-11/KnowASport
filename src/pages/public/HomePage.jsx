@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Trophy, MapPin, ArrowRight, Clock, Sparkles, ChevronRight, Layers,
-  Calendar, ShieldCheck, Globe, Users, Newspaper, BookOpen
+  Calendar, ShieldCheck, Globe, Users, Newspaper, BookOpen,
+  GraduationCap, School, Building2, Award, Goal, Shield, CheckCircle2
 } from 'lucide-react';
 import EventCard from '../../components/events/EventCard.jsx';
 import Button from '../../components/common/Button.jsx';
@@ -11,7 +12,7 @@ import SearchBar from '../../components/common/SearchBar.jsx';
 import { useEvents } from '../../hooks/useEvents.js';
 import { blogService } from '../../services/blogService.js';
 import { useLocationContext } from '../../context/LocationContext.jsx';
-import { SPORTS } from '../../utils/constants.js';
+import { SPORTS, EVENT_TYPES } from '../../utils/constants.js';
 import { formatDateShort } from '../../utils/formatters.js';
 import SEOHead from '../../components/common/SEOHead.jsx';
 
@@ -52,6 +53,17 @@ export default function HomePage() {
     .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
     .slice(0, 4);
 
+  // Event Types with custom icons for Section B
+  const eventTypeCards = [
+    { id: 'college', name: 'College Events', icon: GraduationCap, description: 'Inter-college meets', color: 'text-indigo-600 bg-indigo-50 border-indigo-100' },
+    { id: 'school', name: 'School Events', icon: School, description: 'Inter-school sports', color: 'text-blue-600 bg-blue-50 border-blue-100' },
+    { id: 'open', name: 'Open Sports Events', icon: Globe, description: 'Open entry tournaments', color: 'text-amber-600 bg-amber-50 border-amber-100' },
+    { id: 'club', name: 'Club Events', icon: Shield, description: 'Academy & club cups', color: 'text-purple-600 bg-purple-50 border-purple-100' },
+    { id: 'local', name: 'Local Events', icon: MapPin, description: 'Community town meets', color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+    { id: 'turf', name: 'Turf Events', icon: Goal, description: 'Synthetic turf & futsal', color: 'text-teal-600 bg-teal-50 border-teal-100' },
+    { id: 'championship', name: 'Tournaments', icon: Award, description: 'State & district cups', color: 'text-rose-600 bg-rose-50 border-rose-100' },
+  ];
+
   // 4-Step Organizer Process Data
   const organizerSteps = [
     { number: '01', title: 'ORGANIZE', description: 'Create your tournament or sporting event.', icon: Calendar },
@@ -62,6 +74,11 @@ export default function HomePage() {
 
   return (
     <div className="space-y-16 pb-16">
+      <SEOHead
+        title="KnowASport — Discover Sports Events Across Tamil Nadu"
+        description="Find cricket leagues, football tournaments, badminton opens, and local turf matches across Tamil Nadu with KnowASport."
+      />
+
       {/* ── 1. HERO SECTION ── */}
       <section className="relative overflow-hidden bg-navy-950 text-white pt-12 pb-20 lg:pt-20 lg:pb-28">
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -170,7 +187,78 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── 3. WHAT'S HAPPENING IN SPORTS (COMPACT EDITORIAL SECTION) ── */}
+      {/* ── 3. SECTION A: EXPLORE SPORTS ── */}
+      <section className="kas-container space-y-6">
+        <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+          <div>
+            <span className="text-xs font-800 text-amber-600 uppercase tracking-widest block">Explore By Sport</span>
+            <h2 className="text-2xl sm:text-3xl font-800 text-neutral-900 tracking-tight">
+              Browse Sports Disciplines
+            </h2>
+          </div>
+
+          <Link to="/events" className="text-xs font-800 text-amber-700 hover:text-amber-800 flex items-center gap-1">
+            All Sports <ArrowRight size={14} />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          {SPORTS.slice(0, 10).map((sport) => (
+            <button
+              key={sport.id}
+              onClick={() => navigate(`/events?sport=${sport.id}`)}
+              className="p-4 rounded-[16px] bg-white border border-neutral-200 text-center space-y-2 hover:border-amber-400 hover:-translate-y-0.5 hover:shadow-md transition-all group cursor-pointer"
+            >
+              <div className="w-12 h-12 rounded-[12px] bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors flex items-center justify-center mx-auto text-2xl">
+                {sport.emoji || '🏆'}
+              </div>
+              <span className="font-800 text-neutral-900 text-sm block">{sport.name}</span>
+              <span className="text-[11px] text-neutral-500 block group-hover:text-amber-600 font-600">Explore →</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* ── 4. SECTION B: EXPLORE EVENT TYPES ── */}
+      <section className="kas-container space-y-6">
+        <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+          <div>
+            <span className="text-xs font-800 text-amber-600 uppercase tracking-widest block">Targeted Categories</span>
+            <h2 className="text-2xl sm:text-3xl font-800 text-neutral-900 tracking-tight">
+              Explore Event Types
+            </h2>
+          </div>
+
+          <Link to="/events" className="text-xs font-800 text-amber-700 hover:text-amber-800 flex items-center gap-1">
+            All Types <ArrowRight size={14} />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3.5">
+          {eventTypeCards.map((type) => {
+            const IconComponent = type.icon;
+            return (
+              <button
+                key={type.id}
+                onClick={() => navigate(`/events?eventType=${type.id}`)}
+                className="p-4 rounded-[16px] bg-white border border-neutral-200 flex flex-col justify-between text-left space-y-3 hover:border-amber-400 hover:-translate-y-0.5 hover:shadow-md transition-all group cursor-pointer"
+              >
+                <div className={`w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0 ${type.color}`}>
+                  <IconComponent size={20} />
+                </div>
+                <div>
+                  <h3 className="font-800 text-neutral-900 text-xs sm:text-sm leading-snug group-hover:text-amber-700 transition-colors">
+                    {type.name}
+                  </h3>
+                  <p className="text-[11px] text-neutral-500 mt-1 line-clamp-1">{type.description}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── 5. WHAT'S HAPPENING IN SPORTS (EDITORIAL SECTION) ── */}
       {articles.length > 0 && (
         <section className="bg-neutral-900 text-white py-12 lg:py-16">
           <div className="kas-container space-y-8">
@@ -194,7 +282,6 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-              {/* Featured Main Story */}
               {featuredArticle && (
                 <div className="lg:col-span-7 bg-neutral-950 rounded-[20px] border border-neutral-800 overflow-hidden flex flex-col justify-between group">
                   <div className="space-y-4">
@@ -229,7 +316,6 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* Smaller Secondary Articles */}
               <div className="lg:col-span-5 flex flex-col gap-4">
                 {articles.filter((a) => a.id !== featuredArticle?.id).slice(0, 2).map((art) => (
                   <div
@@ -264,74 +350,54 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* ── 4. EXPLORE SPORTS (COMPACT SPORTS DISCOVERY) ── */}
-      <section className="kas-container space-y-6">
-        <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-          <div>
-            <span className="text-xs font-800 text-amber-600 uppercase tracking-widest block">Categories</span>
-            <h2 className="text-2xl sm:text-3xl font-800 text-neutral-900 tracking-tight">
-              Explore Sports
-            </h2>
-          </div>
-
-          <Link to="/events" className="text-xs font-800 text-amber-700 hover:text-amber-800 flex items-center gap-1">
-            All Sports <ArrowRight size={14} />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {SPORTS.map((sport) => (
-            <button
-              key={sport.id}
-              onClick={() => navigate(`/events?sport=${sport.id}`)}
-              className="p-4 rounded-[16px] bg-white border border-neutral-200 text-center space-y-2 hover:border-amber-400 hover:shadow-md transition-all group"
-            >
-              <div className="w-12 h-12 rounded-[12px] bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors flex items-center justify-center mx-auto text-xl font-800">
-                🏆
-              </div>
-              <span className="font-800 text-neutral-900 text-sm block">{sport.name}</span>
-              <span className="text-[11px] text-neutral-500 block">Explore →</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* ── 5. FOR ORGANIZERS (4-STEP ONBOARDING) ── */}
+      {/* ── 6. ORGANIZER PLATFORM ENHANCED BOX ── */}
       <section className="kas-container">
-        <div className="bg-white rounded-[24px] border border-neutral-200 p-8 lg:p-12 space-y-8 shadow-sm">
-          <div className="text-center max-w-2xl mx-auto space-y-2">
-            <span className="text-xs font-800 text-amber-600 uppercase tracking-widest block">Organizer Platform</span>
-            <h2 className="text-2xl sm:text-3xl font-800 text-neutral-900 tracking-tight">
-              Host Your Tournament on KnowASport
+        <div className="bg-gradient-to-br from-navy-950 via-navy-900 to-navy-950 text-white rounded-[24px] border border-navy-800 p-8 lg:p-12 space-y-8 shadow-2xl relative overflow-hidden">
+          <div className="absolute -top-12 -right-12 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-12 -left-12 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="text-center max-w-2xl mx-auto space-y-3 relative z-10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-navy-900 border border-navy-800 text-amber-400 text-xs font-700">
+              <Trophy size={14} className="text-amber-400" />
+              <span>For Tournament Organizers</span>
+            </div>
+
+            <h2 className="text-2xl sm:text-4xl font-800 text-white tracking-tight">
+              Have an Event? Bring it to <span className="text-amber-400">KnowASport</span>.
             </h2>
-            <p className="text-xs sm:text-sm text-neutral-600">
-              Get verified, list your tournament, accept online payments, and scan athlete QR codes at entry.
+            <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed font-400">
+              Create your tournament, get verified by KnowASport, list events to athletes across Tamil Nadu, accept online payments, and scan athlete QR codes at venue entry.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
             {organizerSteps.map((step) => {
               const IconComp = step.icon;
               return (
-                <div key={step.number} className="p-5 rounded-[16px] bg-neutral-50 border border-neutral-200 space-y-3">
+                <div
+                  key={step.number}
+                  className="p-5 rounded-[18px] bg-navy-900/80 border border-navy-800/80 space-y-3 hover:border-amber-500/40 transition-colors backdrop-blur-xs"
+                >
                   <div className="flex items-center justify-between">
-                    <span className="font-mono font-800 text-amber-600 text-xs">{step.number}</span>
-                    <IconComp size={18} className="text-neutral-500" />
+                    <span className="font-mono font-800 text-amber-400 text-xs tracking-wider">{step.number}</span>
+                    <div className="w-8 h-8 rounded-[8px] bg-navy-950 border border-navy-800 flex items-center justify-center">
+                      <IconComp size={16} className="text-amber-400" />
+                    </div>
                   </div>
-                  <h3 className="font-800 text-neutral-900 text-sm uppercase tracking-wide">{step.title}</h3>
-                  <p className="text-xs text-neutral-600 leading-relaxed">{step.description}</p>
+                  <h3 className="font-800 text-white text-sm uppercase tracking-wide">{step.title}</h3>
+                  <p className="text-xs text-neutral-400 leading-relaxed font-400">{step.description}</p>
                 </div>
               );
             })}
           </div>
 
-          <div className="text-center pt-2">
+          <div className="text-center pt-2 relative z-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button
               variant="primary"
               size="lg"
               onClick={() => navigate('/organizer/register')}
               icon={<ArrowRight size={18} />}
-              className="font-800"
+              className="w-full sm:w-auto font-800 text-base"
             >
               Become an Organizer
             </Button>
