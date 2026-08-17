@@ -134,11 +134,20 @@ export const eventService = {
    * Fetch single event details by unique slug along with rules, prizes, schedule, and related events
    */
   async getEventBySlug(slug) {
+    let localEvents = [];
+    try {
+      const stored = localStorage.getItem('kas_mock_organizer_events_v2');
+      if (stored) localEvents = JSON.parse(stored);
+    } catch (e) {
+      localEvents = [];
+    }
+    const combinedAll = [...localEvents, ...MOCK_EVENTS];
+
     if (!isSupabaseConfigured) {
-      const found = MOCK_EVENTS.find((e) => e.slug === slug);
+      const found = combinedAll.find((e) => e.slug === slug || e.id === slug);
       if (!found) return null;
 
-      const related = MOCK_EVENTS.filter(
+      const related = combinedAll.filter(
         (e) => e.id !== found.id && (e.sport_slug === found.sport_slug || e.city_name === found.city_name)
       ).slice(0, 3);
 
@@ -175,10 +184,10 @@ export const eventService = {
       };
     } catch (err) {
       console.warn('Supabase event details fetch failed, trying local fallback:', err.message);
-      const found = MOCK_EVENTS.find((e) => e.slug === slug);
+      const found = combinedAll.find((e) => e.slug === slug || e.id === slug);
       if (!found) return null;
 
-      const related = MOCK_EVENTS.filter(
+      const related = combinedAll.filter(
         (e) => e.id !== found.id && (e.sport_slug === found.sport_slug || e.city_name === found.city_name)
       ).slice(0, 3);
 
@@ -192,7 +201,20 @@ export const eventService = {
   _getMockEventsFiltered({
     sport, eventType, city, price, participation, gender, date, search, sort, page, limit
   }) {
-    let list = [...MOCK_EVENTS];
+    let localPublished = [];
+    try {
+      const stored = localStorage.getItem('kas_mock_organizer_events_v2');
+      if (stored) {
+        localPublished = JSON.parse(stored).filter((e) => e.status === 'published');
+      }
+    } catch (e) {
+      localPublished = [];
+    }
+
+    // Merge without duplicate IDs
+    const mockIds = new Set(MOCK_EVENTS.map((m) => m.id));
+    const uniqueLocal = localPublished.filter((e) => !mockIds.has(e.id));
+    let list = [...uniqueLocal, ...MOCK_EVENTS];
 
     if (search && search.trim()) {
       const q = search.toLowerCase().trim();

@@ -31,6 +31,14 @@ export const organizerService = {
       sports_handled: appData.sports_handled || ['Football', 'Cricket'],
       experience_years: appData.experience_years || '1-3 years',
       website_url: appData.website_url || '',
+      // KYC Verification Data
+      aadhaar_number: appData.aadhaar_number || '',
+      aadhaar_holder_name: appData.aadhaar_holder_name || '',
+      aadhaar_doc_url: appData.aadhaar_doc_url || '',
+      live_photo_url: appData.live_photo_url || '',
+      is_phone_verified: appData.is_phone_verified !== false,
+      is_live_photo_verified: Boolean(appData.live_photo_url),
+      is_aadhaar_verified: Boolean(appData.aadhaar_number),
       status: 'pending',
       updated_at: new Date().toISOString(),
     };

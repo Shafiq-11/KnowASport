@@ -77,7 +77,35 @@ export const checkinService = {
       return { status: 'INVALID', message: 'No registration pass code provided.' };
     }
 
-    const cleanInput = codeOrToken.trim().toUpperCase();
+    let rawInput = String(codeOrToken).trim();
+
+    // Parse potential JSON QR payload (e.g. {"pass_code":"KAS7X92P", "reg":"..."})
+    if (rawInput.startsWith('{') && rawInput.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(rawInput);
+        rawInput = parsed.pass_code || parsed.qr_token || parsed.token || parsed.registration_number || parsed.code || rawInput;
+      } catch (e) {
+        // Not JSON, continue
+      }
+    }
+
+    // Parse potential URL payload (e.g. https://knowasport.com/check-in?token=KAS7X92P)
+    if (rawInput.includes('?') || rawInput.startsWith('http://') || rawInput.startsWith('https://')) {
+      try {
+        const urlObj = new URL(rawInput, window.location.origin);
+        const tokenParam = urlObj.searchParams.get('token') || urlObj.searchParams.get('code') || urlObj.searchParams.get('pass_code') || urlObj.searchParams.get('reg');
+        if (tokenParam) rawInput = tokenParam;
+        else {
+          // Check last pathname segment
+          const segments = urlObj.pathname.split('/').filter(Boolean);
+          if (segments.length > 0) rawInput = segments[segments.length - 1];
+        }
+      } catch (e) {
+        // Keep rawInput
+      }
+    }
+
+    const cleanInput = String(rawInput).trim().toUpperCase();
 
     // 1. Fetch Registration Record
     let registration = null;
@@ -89,12 +117,16 @@ export const checkinService = {
         const regNum = (r.registration_number || '').toUpperCase();
         const qrTok = (r.qr_token || `KAS-QR-${passCode}-${regNum.replace(/[^0-9]/g, '')}`).toUpperCase();
         const legacyTok = `KAS-V-${r.id}`.toUpperCase();
+        const regId = (r.id || '').toUpperCase();
 
         return (
           passCode === cleanInput ||
           regNum === cleanInput ||
           qrTok === cleanInput ||
-          legacyTok === cleanInput
+          legacyTok === cleanInput ||
+          regId === cleanInput ||
+          cleanInput.includes(passCode) ||
+          (cleanInput.length >= 6 && qrTok.includes(cleanInput))
         );
       });
     } else {
@@ -112,10 +144,11 @@ export const checkinService = {
             team_size,
             status,
             payment_status,
+            total_fee,
             checkin_status,
             checked_in_at,
             created_at,
-            event:events(id, title, sport_name, check_in_required, venue_name, city_name),
+            event:events(id, slug, title, sport_name, check_in_required, venue_name, city_name),
             participants:registration_participants(id, full_name, player_role, player_number)
           `)
           .or(`pass_code.eq.${cleanInput},registration_number.eq.${cleanInput},qr_token.eq.${cleanInput}`)
@@ -136,7 +169,12 @@ export const checkinService = {
     }
 
     // Check Event Match (Reject cross-event check-ins)
-    if (registration.event_id !== eventId && registration.event?.id !== eventId) {
+    const matchEvent =
+      registration.event_id === eventId ||
+      registration.event?.id === eventId ||
+      registration.event?.slug === eventId;
+
+    if (!matchEvent) {
       return {
         status: 'WRONG_EVENT',
         registration,
@@ -162,8 +200,9 @@ export const checkinService = {
       };
     }
 
-    // Check Payment Status
-    if (registration.total_fee > 0 && registration.payment_status === 'pending') {
+    // Check Payment Status (reject pending / failed for paid tournaments)
+    const fee = Number(registration.total_fee || registration.event?.entry_fee || 0);
+    if (fee > 0 && (registration.payment_status === 'pending' || registration.payment_status === 'failed')) {
       return {
         status: 'PAYMENT_REQUIRED',
         registration,

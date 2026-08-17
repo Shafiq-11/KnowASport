@@ -2,9 +2,10 @@ import { supabase, isSupabaseConfigured } from './supabase.js';
 import { eventService } from './eventService.js';
 import { registrationService } from './registrationService.js';
 import { notificationService } from './notificationService.js';
+import { MOCK_EVENTS, MOCK_ORGANIZERS } from '../data/mockEvents.js';
 
 const LOCAL_ADMIN_APPS_KEY = 'kas_mock_organizer_apps_v1';
-const LOCAL_ADMIN_EVENTS_KEY = 'kas_mock_organizer_events_v1';
+const LOCAL_ADMIN_EVENTS_KEY = 'kas_mock_organizer_events_v2';
 const LOCAL_AUDIT_LOGS_KEY = 'kas_mock_audit_logs_v1';
 
 export const adminService = {
@@ -15,7 +16,8 @@ export const adminService = {
     const allEventsRes = await eventService.getEvents({ limit: 100 });
     const events = allEventsRes.events || [];
     const pendingApps = await this.getPendingApplications();
-    const pendingEvents = await this.getPendingEvents();
+    const allAdminEvents = await this.getAllEvents();
+    const pendingEvents = allAdminEvents.filter((e) => e.status === 'pending_review');
 
     let totalUsers = 120;
     let totalOrganizers = 15;
@@ -72,9 +74,9 @@ export const adminService = {
     }
 
     const organizerAmount = totalRegistrationPayments - platformFees;
-    const publishedEvents = events.filter((e) => e.status === 'published').length;
-    const draftEvents = events.filter((e) => e.status === 'draft').length;
-    const upcomingEvents = events.filter((e) => new Date(e.start_date) >= new Date() && e.status === 'published').length;
+    const publishedEvents = allAdminEvents.filter((e) => e.status === 'published').length;
+    const draftEvents = allAdminEvents.filter((e) => e.status === 'draft').length;
+    const upcomingEvents = allAdminEvents.filter((e) => new Date(e.start_date) >= new Date() && e.status === 'published').length;
 
     return {
       totalUsers,
@@ -93,7 +95,7 @@ export const adminService = {
       platformFees,
       organizerAmount,
       pendingApplicationsCount: pendingApps.filter((a) => a.status === 'pending').length,
-      pendingEventsCount: pendingEvents.filter((e) => e.status === 'pending_review').length,
+      pendingEventsCount: pendingEvents.length,
     };
   },
 
@@ -103,7 +105,7 @@ export const adminService = {
   async getPendingApplications() {
     if (!isSupabaseConfigured) {
       const stored = this._getStoredApplications();
-      return stored.filter((a) => a.status === 'pending' || a.status === 'under_review');
+      return stored;
     }
 
     try {
@@ -117,6 +119,122 @@ export const adminService = {
     } catch (err) {
       const stored = this._getStoredApplications();
       return stored;
+    }
+  },
+
+  /**
+   * Get Registered Organizers with their event counts
+   */
+  async getOrganizersWithEvents() {
+    const applications = await this.getPendingApplications();
+    const allEvents = await this.getAllEvents();
+
+    if (!isSupabaseConfigured) {
+      // Build list from MOCK_ORGANIZERS and stored applications
+      const orgMap = new Map();
+
+      // 1. Initial Mock Organizers
+      const initialOrgs = [
+        {
+          id: 'usr_org_1',
+          user_id: 'usr_org_1',
+          organization_name: 'Coimbatore District Badminton Association',
+          organization_type: 'association',
+          city_name: 'Coimbatore',
+          phone: '+91 98422 12345',
+          email: 'contact@cdba.in',
+          verification_status: 'verified',
+          created_at: '2026-01-10T10:00:00Z',
+        },
+        {
+          id: 'usr_org_2',
+          user_id: 'usr_org_2',
+          organization_name: 'Chennai Sports Club & Academy',
+          organization_type: 'academy',
+          city_name: 'Chennai',
+          phone: '+91 94440 98765',
+          email: 'events@chennaisportsclub.org',
+          verification_status: 'verified',
+          created_at: '2026-01-15T12:00:00Z',
+        },
+        {
+          id: 'usr_org_3',
+          user_id: 'usr_org_3',
+          organization_name: 'Tiruppur Volleyball Development Association',
+          organization_type: 'association',
+          city_name: 'Tiruppur',
+          phone: '+91 98941 55443',
+          email: 'info@tiruppurvolley.in',
+          verification_status: 'verified',
+          created_at: '2026-02-01T09:00:00Z',
+        },
+      ];
+
+      initialOrgs.forEach((o) => orgMap.set(o.id, o));
+
+      // 2. Add from approved/registered applications
+      applications.forEach((app) => {
+        const key = app.user_id || app.id;
+        orgMap.set(key, {
+          id: app.id,
+          user_id: app.user_id || app.id,
+          organization_name: app.organization_name,
+          organization_type: app.organization_type,
+          city_name: app.city_name,
+          phone: app.phone,
+          email: app.email,
+          verification_status: app.status === 'approved' ? 'verified' : app.status,
+          created_at: app.created_at || new Date().toISOString(),
+        });
+      });
+
+      const list = Array.from(orgMap.values()).map((org) => {
+        const orgEvents = allEvents.filter(
+          (e) => e.organizer_id === org.id || e.organizer_id === org.user_id || e.user_id === org.user_id
+        );
+        return {
+          ...org,
+          total_events: orgEvents.length,
+          published_events: orgEvents.filter((e) => e.status === 'published').length,
+          pending_events: orgEvents.filter((e) => e.status === 'pending_review').length,
+          draft_events: orgEvents.filter((e) => e.status === 'draft').length,
+        };
+      });
+
+      return list;
+    }
+
+    try {
+      const { data: orgs, error } = await supabase
+        .from('organizers')
+        .select('*, profile:profiles(*)')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return (orgs || []).map((org) => {
+        const orgEvents = allEvents.filter(
+          (e) => e.organizer_id === org.id || e.organizer_id === org.user_id
+        );
+        return {
+          id: org.id,
+          user_id: org.user_id,
+          organization_name: org.organization_name || org.profile?.full_name || 'Organizer',
+          organization_type: org.organization_type || 'organization',
+          city_name: org.city_name || org.profile?.city_name || 'Tamil Nadu',
+          phone: org.phone || org.profile?.phone || 'N/A',
+          email: org.email || org.profile?.email || 'N/A',
+          verification_status: org.verification_status || 'verified',
+          created_at: org.created_at,
+          total_events: orgEvents.length,
+          published_events: orgEvents.filter((e) => e.status === 'published').length,
+          pending_events: orgEvents.filter((e) => e.status === 'pending_review').length,
+          draft_events: orgEvents.filter((e) => e.status === 'draft').length,
+        };
+      });
+    } catch (err) {
+      console.warn('Supabase getOrganizersWithEvents warning:', err.message);
+      return [];
     }
   },
 
@@ -160,20 +278,25 @@ export const adminService = {
 
       if (appErr) throw appErr;
 
-      // FIXED: verification_status = 'verified' matching DB check constraint IN ('pending', 'verified', 'rejected', 'suspended')
-      await supabase.from('organizers').upsert({
-        user_id: app.user_id,
-        organization_name: app.organization_name,
-        organization_type: app.organization_type,
-        city_name: app.city_name,
-        district_name: app.district_name,
-        verification_status: 'verified',
-      });
+      if (app?.user_id) {
+        await supabase.from('profiles').update({ role: 'organizer' }).eq('id', app.user_id);
+        await supabase.from('organizers').upsert({
+          user_id: app.user_id,
+          organization_name: app.organization_name,
+          organization_type: app.organization_type,
+          city_name: app.city_name,
+          district_name: app.district_name || app.city_name,
+          phone: app.phone,
+          email: app.email,
+          verification_status: 'verified',
+          verified_at: reviewedAt,
+        });
+      }
 
       return true;
     } catch (err) {
       console.error('Approve application error:', err);
-      throw new Error(err.message || 'Could not approve application.');
+      return false;
     }
   },
 
@@ -185,8 +308,20 @@ export const adminService = {
     const reviewedAt = new Date().toISOString();
     await this._logAudit(adminUser?.id, 'REJECT_ORGANIZER', 'organizer_application', appId, { reason });
 
+    const stored = this._getStoredApplications();
+    const targetApp = stored.find((a) => a.id === appId || a.user_id === appId);
+    const targetUserId = targetApp?.user_id || appId;
+
+    await notificationService.createNotification({
+      userId: targetUserId,
+      type: 'organizer_rejected',
+      title: 'Organizer Application Update',
+      message: `Your organizer application was rejected: ${reason}`,
+      relatedType: 'organizer',
+      relatedId: appId,
+    });
+
     if (!isSupabaseConfigured) {
-      const stored = this._getStoredApplications();
       const updated = stored.map((a) =>
         a.id === appId || a.user_id === appId
           ? { ...a, status: 'rejected', rejection_reason: reason, reviewed_at: reviewedAt }
@@ -211,53 +346,63 @@ export const adminService = {
   },
 
   /**
-   * Get events pending admin approval (status = pending_review)
-   */
-  async getPendingEvents() {
-    if (!isSupabaseConfigured) {
-      const stored = this._getStoredEvents();
-      return stored.filter((e) => e.status === 'pending_review' || e.status === 'draft');
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
-    } catch (err) {
-      const stored = this._getStoredEvents();
-      return stored;
-    }
-  },
-
-  /**
-   * Approve & Publish Event (status: pending_review -> published)
+   * Approve Event and Publish to Discovery Feed
    */
   async approveEvent(eventId, adminUser) {
-    await this._logAudit(adminUser?.id, 'PUBLISH_EVENT', 'event', eventId, { status: 'published' });
+    const moderatedAt = new Date().toISOString();
+    await this._logAudit(adminUser?.id, 'APPROVE_EVENT', 'event', eventId, { status: 'published' });
 
-    if (!isSupabaseConfigured) {
-      const stored = this._getStoredEvents();
-      const updated = stored.map((e) => (e.id === eventId ? { ...e, status: 'published' } : e));
-      localStorage.setItem(LOCAL_ADMIN_EVENTS_KEY, JSON.stringify(updated));
-      return true;
+    const stored = this._getStoredEvents();
+    const targetEvt = stored.find((e) => e.id === eventId || e.slug === eventId);
+    const targetUserId = targetEvt?.user_id || targetEvt?.organizer_id || targetEvt?.organizer?.user_id;
+
+    if (targetUserId) {
+      try {
+        await notificationService.createNotification({
+          userId: targetUserId,
+          type: 'event_approved',
+          title: 'Tournament Approved & Published!',
+          message: `Your sports event "${targetEvt?.title || 'Tournament'}" has been approved by admin and is now live on public discovery!`,
+          relatedType: 'event',
+          relatedId: eventId,
+        });
+      } catch (ne) {
+        console.warn('Notification send warning:', ne.message);
+      }
     }
 
-    try {
-      const { error } = await supabase
-        .from('events')
-        .update({ status: 'published' })
-        .eq('id', eventId);
+    const updated = stored.map((e) =>
+      e.id === eventId || e.slug === eventId
+        ? {
+            ...e,
+            status: 'published',
+            published_at: e.published_at || moderatedAt,
+            moderated_at: moderatedAt,
+            moderated_by: adminUser?.id || 'admin',
+            changes_requested_reason: null,
+            rejection_reason: null,
+          }
+        : e
+    );
+    localStorage.setItem(LOCAL_ADMIN_EVENTS_KEY, JSON.stringify(updated));
 
-      if (error) throw error;
-      return true;
-    } catch (err) {
-      console.error('Approve event error:', err);
-      throw new Error(err.message || 'Could not publish event.');
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('events')
+          .update({
+            status: 'published',
+            updated_at: moderatedAt,
+          })
+          .eq('id', eventId);
+
+        if (error) console.warn('Supabase approve event warning:', error.message);
+      } catch (err) {
+        console.warn('Supabase approve event error:', err);
+      }
     }
+
+    return true;
   },
 
   /**
@@ -265,60 +410,246 @@ export const adminService = {
    */
   async rejectEvent(eventId, reason, adminUser) {
     if (!reason || !reason.trim()) throw new Error('Rejection reason required.');
+    const moderatedAt = new Date().toISOString();
     await this._logAudit(adminUser?.id, 'REJECT_EVENT', 'event', eventId, { reason });
 
-    if (!isSupabaseConfigured) {
-      const stored = this._getStoredEvents();
-      const updated = stored.map((e) =>
-        e.id === eventId ? { ...e, status: 'rejected', rejection_reason: reason } : e
-      );
-      localStorage.setItem(LOCAL_ADMIN_EVENTS_KEY, JSON.stringify(updated));
-      return true;
+    const stored = this._getStoredEvents();
+    const targetEvt = stored.find((e) => e.id === eventId || e.slug === eventId);
+    const targetUserId = targetEvt?.user_id || targetEvt?.organizer_id || targetEvt?.organizer?.user_id;
+
+    if (targetUserId) {
+      try {
+        await notificationService.createNotification({
+          userId: targetUserId,
+          type: 'event_rejected',
+          title: 'Tournament Submission Rejected',
+          message: `Your tournament "${targetEvt?.title || 'Event'}" was rejected: ${reason}`,
+          relatedType: 'event',
+          relatedId: eventId,
+        });
+      } catch (ne) {
+        console.warn('Notification send warning:', ne.message);
+      }
     }
 
-    try {
-      // FIXED: Populate rejection_reason matching DB schema
-      const { error } = await supabase
-        .from('events')
-        .update({ status: 'rejected', rejection_reason: reason })
-        .eq('id', eventId);
+    const updated = stored.map((e) =>
+      e.id === eventId || e.slug === eventId
+        ? {
+            ...e,
+            status: 'rejected',
+            rejection_reason: reason,
+            moderated_at: moderatedAt,
+            moderated_by: adminUser?.id || 'admin',
+          }
+        : e
+    );
+    localStorage.setItem(LOCAL_ADMIN_EVENTS_KEY, JSON.stringify(updated));
 
-      if (error) throw error;
-      return true;
-    } catch (err) {
-      console.error('Reject event error:', err);
-      return false;
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('events')
+          .update({
+            status: 'rejected',
+            updated_at: moderatedAt,
+          })
+          .eq('id', eventId);
+
+        if (error) console.warn('Supabase reject event warning:', error.message);
+      } catch (err) {
+        console.warn('Supabase reject event error:', err);
+      }
     }
+
+    return true;
   },
 
   /**
-   * Request Changes for Event
+   * Request Changes for an Event
    */
   async requestEventChanges(eventId, reason, adminUser) {
-    if (!reason || !reason.trim()) throw new Error('Reason required.');
-    await this._logAudit(adminUser?.id, 'REQUEST_EVENT_CHANGES', 'event', eventId, { reason });
+    if (!reason || !reason.trim()) throw new Error('Change request notes required.');
+    const moderatedAt = new Date().toISOString();
+    await this._logAudit(adminUser?.id, 'REQUEST_CHANGES_EVENT', 'event', eventId, { reason });
+
+    const stored = this._getStoredEvents();
+    const targetEvt = stored.find((e) => e.id === eventId || e.slug === eventId);
+    const targetUserId = targetEvt?.user_id || targetEvt?.organizer_id || targetEvt?.organizer?.user_id;
+
+    if (targetUserId) {
+      try {
+        await notificationService.createNotification({
+          userId: targetUserId,
+          type: 'event_changes_requested',
+          title: 'Modifications Requested for Tournament',
+          message: `Admin requested changes for "${targetEvt?.title || 'Event'}": ${reason}`,
+          relatedType: 'event',
+          relatedId: eventId,
+        });
+      } catch (ne) {
+        console.warn('Notification send warning:', ne.message);
+      }
+    }
+
+    const updated = stored.map((e) =>
+      e.id === eventId || e.slug === eventId
+        ? {
+            ...e,
+            status: 'changes_requested',
+            changes_requested_reason: reason,
+            moderated_at: moderatedAt,
+            moderated_by: adminUser?.id || 'admin',
+          }
+        : e
+    );
+    localStorage.setItem(LOCAL_ADMIN_EVENTS_KEY, JSON.stringify(updated));
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('events')
+          .update({
+            status: 'changes_requested',
+            updated_at: moderatedAt,
+          })
+          .eq('id', eventId);
+
+        if (error) console.warn('Supabase requestEventChanges warning:', error.message);
+      } catch (err) {
+        console.warn('Supabase requestEventChanges error:', err);
+      }
+    }
+
+    return true;
+  },
+
+  /**
+   * Unpublish Event back to Draft
+   */
+  async unpublishEvent(eventId, adminUser) {
+    const moderatedAt = new Date().toISOString();
+    await this._logAudit(adminUser?.id, 'UNPUBLISH_EVENT', 'event', eventId, { status: 'draft' });
+
+    const stored = this._getStoredEvents();
+    const targetEvt = stored.find((e) => e.id === eventId || e.slug === eventId);
+    const targetUserId = targetEvt?.user_id || targetEvt?.organizer_id || targetEvt?.organizer?.user_id;
+
+    if (targetUserId) {
+      try {
+        await notificationService.createNotification({
+          userId: targetUserId,
+          type: 'event_unpublished',
+          title: 'Tournament Unpublished',
+          message: `Your tournament "${targetEvt?.title || 'Event'}" has been reverted to draft by an admin.`,
+          relatedType: 'event',
+          relatedId: eventId,
+        });
+      } catch (ne) {
+        console.warn('Notification send warning:', ne.message);
+      }
+    }
+
+    const updated = stored.map((e) =>
+      e.id === eventId || e.slug === eventId
+        ? {
+            ...e,
+            status: 'draft',
+            moderated_at: moderatedAt,
+            moderated_by: adminUser?.id || 'admin',
+          }
+        : e
+    );
+    localStorage.setItem(LOCAL_ADMIN_EVENTS_KEY, JSON.stringify(updated));
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('events')
+          .update({
+            status: 'draft',
+            updated_at: moderatedAt,
+          })
+          .eq('id', eventId);
+
+        if (error) console.warn('Supabase unpublishEvent warning:', error.message);
+      } catch (err) {
+        console.warn('Supabase unpublishEvent error:', err);
+      }
+    }
+
+    return true;
+  },
+
+  /**
+   * Get all events with full filtering (Unified Admin event access)
+   */
+  async getAllEvents({ status = 'all', search = '', sport = 'all' } = {}) {
+    let list = [];
 
     if (!isSupabaseConfigured) {
-      const stored = this._getStoredEvents();
-      const updated = stored.map((e) =>
-        e.id === eventId ? { ...e, status: 'changes_requested', changes_requested_reason: reason } : e
+      list = this._getStoredEvents();
+    } else {
+      try {
+        let query = supabase
+          .from('events')
+          .select(`
+            *,
+            organizer:organizers(*),
+            sport:sports(*),
+            event_type:event_types(*)
+          `)
+          .order('created_at', { ascending: false });
+
+        if (status !== 'all') {
+          query = query.eq('status', status);
+        }
+        if (sport !== 'all') {
+          query = query.eq('sport_slug', sport);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        // Also merge any local session-added events to ensure immediate sync
+        const stored = this._getStoredEvents();
+        const dbIds = new Set((data || []).map((e) => e.id));
+        const missingLocal = stored.filter((e) => !dbIds.has(e.id));
+        list = [...(data || []), ...missingLocal];
+      } catch (err) {
+        console.warn('Supabase events query warning, falling back to local:', err.message);
+        list = this._getStoredEvents();
+      }
+    }
+
+    // Filter by Status Tab
+    if (status && status !== 'all') {
+      list = list.filter((e) => e.status === status);
+    }
+
+    // Filter by Sport
+    if (sport && sport !== 'all') {
+      list = list.filter(
+        (e) =>
+          e.sport_slug === sport ||
+          e.sport_name?.toLowerCase() === sport.toLowerCase() ||
+          e.sport_id === sport
       );
-      localStorage.setItem(LOCAL_ADMIN_EVENTS_KEY, JSON.stringify(updated));
-      return true;
     }
 
-    try {
-      const { error } = await supabase
-        .from('events')
-        .update({ status: 'changes_requested', changes_requested_reason: reason })
-        .eq('id', eventId);
-
-      if (error) throw error;
-      return true;
-    } catch (err) {
-      console.error('Request changes error:', err);
-      return false;
+    // Filter by Search Query
+    if (search && search.trim()) {
+      const q = search.toLowerCase().trim();
+      list = list.filter(
+        (e) =>
+          (e.title || '').toLowerCase().includes(q) ||
+          (e.organizer_name || e.organizer?.organization_name || '').toLowerCase().includes(q) ||
+          (e.sport_name || '').toLowerCase().includes(q) ||
+          (e.venue_name || '').toLowerCase().includes(q) ||
+          (e.city_name || '').toLowerCase().includes(q)
+      );
     }
+
+    return list;
   },
 
   /**
@@ -495,7 +826,75 @@ export const adminService = {
   _getStoredApplications() {
     try {
       const stored = localStorage.getItem(LOCAL_ADMIN_APPS_KEY);
-      return stored ? JSON.parse(stored) : [];
+      if (stored) return JSON.parse(stored);
+
+      const initialApps = [
+        {
+          id: 'app_101',
+          user_id: 'usr_org_app_1',
+          organization_name: 'Trichy United Sports Club',
+          organization_type: 'Sports Club',
+          city_name: 'Tiruchirappalli',
+          district_name: 'Tiruchirappalli',
+          sports_handled: ['Football', 'Cricket'],
+          experience_years: '3-5 years',
+          phone: '+91 94431 88990',
+          email: 'contact@trichysports.org',
+          aadhaar_number: '5421 8839 2011',
+          aadhaar_holder_name: 'Karthikeyan Subramaniam',
+          aadhaar_doc_url: 'https://images.unsplash.com/photo-1618042164219-62c820f10723?w=600&auto=format&fit=crop&q=80',
+          live_photo_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+          is_phone_verified: true,
+          is_live_photo_verified: true,
+          is_aadhaar_verified: true,
+          status: 'pending',
+          created_at: new Date(Date.now() - 86400000).toISOString(),
+        },
+        {
+          id: 'app_102',
+          user_id: 'usr_org_app_2',
+          organization_name: 'Erode District Badminton Guild',
+          organization_type: 'Academy',
+          city_name: 'Erode',
+          district_name: 'Erode',
+          sports_handled: ['Badminton'],
+          experience_years: '5+ years',
+          phone: '+91 98427 11223',
+          email: 'admin@erodeshuttles.in',
+          aadhaar_number: '7890 1234 5678',
+          aadhaar_holder_name: 'Venkatesh Ramanathan',
+          aadhaar_doc_url: 'https://images.unsplash.com/photo-1618042164219-62c820f10723?w=600&auto=format&fit=crop&q=80',
+          live_photo_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
+          is_phone_verified: true,
+          is_live_photo_verified: true,
+          is_aadhaar_verified: true,
+          status: 'pending',
+          created_at: new Date(Date.now() - 172800000).toISOString(),
+        },
+        {
+          id: 'app_103',
+          user_id: 'usr_org_1',
+          organization_name: 'Coimbatore District Badminton Association',
+          organization_type: 'Association',
+          city_name: 'Coimbatore',
+          district_name: 'Coimbatore',
+          sports_handled: ['Badminton'],
+          experience_years: '10+ years',
+          phone: '+91 98422 12345',
+          email: 'contact@cdba.in',
+          aadhaar_number: '9920 4410 8823',
+          aadhaar_holder_name: 'Senthil Kumar Balaji',
+          aadhaar_doc_url: 'https://images.unsplash.com/photo-1618042164219-62c820f10723?w=600&auto=format&fit=crop&q=80',
+          live_photo_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80',
+          is_phone_verified: true,
+          is_live_photo_verified: true,
+          is_aadhaar_verified: true,
+          status: 'approved',
+          created_at: '2026-01-10T10:00:00Z',
+        },
+      ];
+      localStorage.setItem(LOCAL_ADMIN_APPS_KEY, JSON.stringify(initialApps));
+      return initialApps;
     } catch (e) {
       return [];
     }
@@ -504,7 +903,16 @@ export const adminService = {
   _getStoredEvents() {
     try {
       const stored = localStorage.getItem(LOCAL_ADMIN_EVENTS_KEY);
-      return stored ? JSON.parse(stored) : [];
+      if (stored) return JSON.parse(stored);
+
+      const initialEvents = MOCK_EVENTS.map((e, idx) => ({
+        ...e,
+        organizer_name: e.organizer?.organization_name || 'Verified Sports Club',
+        status: idx === 0 ? 'published' : idx === 1 ? 'pending_review' : idx === 2 ? 'pending_review' : idx === 3 ? 'changes_requested' : idx === 4 ? 'draft' : 'published',
+        changes_requested_reason: idx === 3 ? 'Please clarify tournament registration fee structure and upload venue schedule.' : undefined,
+      }));
+      localStorage.setItem(LOCAL_ADMIN_EVENTS_KEY, JSON.stringify(initialEvents));
+      return initialEvents;
     } catch (e) {
       return [];
     }
