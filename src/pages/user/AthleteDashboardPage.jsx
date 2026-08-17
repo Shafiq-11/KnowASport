@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Trophy, Calendar, MapPin, Ticket, Bookmark, CheckCircle2, Clock, AlertCircle,
-  ArrowRight, Activity, User, ShieldCheck, PieChart, TrendingUp, Users
+  ArrowRight, Activity, User, ShieldCheck, PieChart, TrendingUp, Users, Sparkles, Compass
 } from 'lucide-react';
 import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
@@ -12,7 +12,8 @@ import { SectionSkeleton } from '../../components/common/Skeleton.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { registrationService } from '../../services/registrationService.js';
 import { savedEventService } from '../../services/savedEventService.js';
-import { formatDateShort } from '../../utils/formatters.js';
+import { eventService } from '../../services/eventService.js';
+import { formatDateShort, formatPrice } from '../../utils/formatters.js';
 
 export default function AthleteDashboardPage() {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ export default function AthleteDashboardPage() {
 
   const [registrations, setRegistrations] = useState([]);
   const [savedCount, setSavedCount] = useState(0);
+  const [recommendedEvents, setRecommendedEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,12 +32,19 @@ export default function AthleteDashboardPage() {
       setLoading(true);
 
       try {
-        const regs = await registrationService.getUserRegistrations(user.id);
-        const savedIds = await savedEventService.getSavedEventIds(user.id);
+        const [regs, savedIds, eventsData] = await Promise.all([
+          registrationService.getUserRegistrations(user.id),
+          savedEventService.getSavedEventIds(user.id),
+          eventService.getEvents({
+            sport: profile?.primary_sport || undefined,
+            limit: 3,
+          }),
+        ]);
 
         if (active) {
           setRegistrations(regs || []);
           setSavedCount(savedIds.length);
+          setRecommendedEvents(eventsData?.events || []);
         }
       } catch (err) {
         console.error('Error loading athlete dashboard:', err);
@@ -49,7 +58,7 @@ export default function AthleteDashboardPage() {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [user, profile]);
 
   // Derived Metrics
   const totalRegistered = registrations.length;
@@ -83,6 +92,9 @@ export default function AthleteDashboardPage() {
   const monthlyActivityList = Object.entries(monthlyActivity);
   const displayName = profile?.full_name || user?.user_metadata?.full_name || 'Athlete';
   const cityName = profile?.city_name || 'Coimbatore';
+  const primarySport = profile?.primary_sport || 'badminton';
+
+  const isProfileIncomplete = !profile?.phone || !profile?.primary_sport || !profile?.city_name;
 
   return (
     <div className="kas-container py-8 lg:py-12 space-y-8 max-w-5xl">
@@ -122,7 +134,37 @@ export default function AthleteDashboardPage() {
         </div>
       </div>
 
-      {/* ── 2. SUMMARY METRICS ── */}
+      {/* ── 2. PROFILE COMPLETION PROMPT BANNER ── */}
+      {isProfileIncomplete && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 rounded-[18px] p-5 sm:p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg"
+        >
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Sparkles size={18} className="text-amber-200" />
+              <span className="text-sm font-800 tracking-wide uppercase text-amber-100">
+                Complete Your Athlete Profile
+              </span>
+            </div>
+            <p className="text-xs text-amber-100 max-w-xl leading-relaxed">
+              Fill in your primary sport, mobile number, and city to unlock personalized tournament recommendations and 1-click check-in.
+            </p>
+          </div>
+
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => navigate('/profile')}
+            className="bg-white text-neutral-900 hover:bg-neutral-100 border-white font-800 text-xs px-5 py-2.5 flex-shrink-0 shadow-md"
+          >
+            Complete Profile Now →
+          </Button>
+        </motion.div>
+      )}
+
+      {/* ── 3. SUMMARY METRICS ── */}
       {loading ? (
         <SectionSkeleton count={4} />
       ) : (
@@ -149,7 +191,63 @@ export default function AthleteDashboardPage() {
         </div>
       )}
 
-      {/* ── 3. ACTION REQUIRED: PENDING PAYMENTS ── */}
+      {/* ── 4. RECOMMENDED TOURNAMENTS FOR YOU ── */}
+      {recommendedEvents.length > 0 && (
+        <div className="bg-white rounded-[20px] border border-neutral-200 p-6 space-y-4 shadow-sm">
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+            <div>
+              <h3 className="font-800 text-neutral-900 text-base flex items-center gap-2">
+                <Compass size={18} className="text-amber-500" />
+                Recommended Tournaments For You
+              </h3>
+              <p className="text-xs text-neutral-500 mt-0.5">
+                Curated based on your preference for <strong className="capitalize text-neutral-800">{primarySport}</strong> in <strong className="text-neutral-800">{cityName}</strong>
+              </p>
+            </div>
+            <Link
+              to={`/events?sport=${primarySport}&city=${cityName.toLowerCase()}`}
+              className="text-xs font-700 text-amber-700 hover:text-amber-800 flex items-center gap-1"
+            >
+              See All <ArrowRight size={13} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {recommendedEvents.map((evt) => (
+              <div
+                key={evt.id}
+                onClick={() => navigate(`/events/${evt.slug || evt.id}`)}
+                className="p-4 rounded-[14px] bg-neutral-50 border border-neutral-200 space-y-2.5 hover:border-amber-400 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="font-800 uppercase text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded-[4px]">
+                      {evt.sport_name || 'Sports'}
+                    </span>
+                    <span className="font-800 text-neutral-900 font-mono">
+                      {evt.entry_fee > 0 ? formatPrice(evt.entry_fee) : 'FREE'}
+                    </span>
+                  </div>
+
+                  <h4 className="font-800 text-neutral-900 text-sm line-clamp-1">{evt.title}</h4>
+                  
+                  <div className="text-xs text-neutral-500 flex items-center gap-1">
+                    <MapPin size={12} className="text-neutral-400" />
+                    <span className="truncate">{evt.venue_name || evt.city_name}</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-neutral-200/60 flex items-center justify-between text-xs">
+                  <span className="text-neutral-500">{formatDateShort(evt.start_date)}</span>
+                  <span className="font-700 text-amber-700">Register →</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 5. ACTION REQUIRED: PENDING PAYMENTS ── */}
       {pendingPaymentRegs.length > 0 && (
         <div className="bg-amber-50 rounded-[16px] border border-amber-200 p-6 space-y-4 shadow-xs">
           <div className="flex items-center gap-2 font-800 text-amber-900 text-base">
@@ -179,7 +277,7 @@ export default function AthleteDashboardPage() {
         </div>
       )}
 
-      {/* ── 4. UPCOMING EVENTS ROSTER ── */}
+      {/* ── 6. UPCOMING EVENTS ROSTER ── */}
       <div className="bg-white rounded-[20px] border border-neutral-200 p-6 space-y-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <h3 className="font-800 text-neutral-900 text-base flex items-center gap-2">
@@ -229,7 +327,7 @@ export default function AthleteDashboardPage() {
         )}
       </div>
 
-      {/* ── 5. SPORT PARTICIPATION & ACTIVITY TREND ── */}
+      {/* ── 7. SPORT PARTICIPATION & ACTIVITY TREND ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Sport Activity Horizontal Bar Chart */}
         <div className="bg-white rounded-[20px] border border-neutral-200 p-6 space-y-4 shadow-sm">
@@ -300,7 +398,7 @@ export default function AthleteDashboardPage() {
         </div>
       </div>
 
-      {/* ── 6. RECENTLY COMPLETED EVENTS ── */}
+      {/* ── 8. RECENTLY COMPLETED EVENTS ── */}
       {completedRegs.length > 0 && (
         <div className="bg-white rounded-[20px] border border-neutral-200 p-6 space-y-4 shadow-sm">
           <h3 className="font-800 text-neutral-900 text-base flex items-center gap-2">

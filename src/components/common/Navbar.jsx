@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Menu, X, ChevronDown, User, LogOut, Ticket,
-  Heart, Trophy, LayoutDashboard, Plus, Bell, CheckCheck
+  Heart, Trophy, LayoutDashboard, Plus, Bell, CheckCheck, Shield
 } from 'lucide-react';
 import Button from '../common/Button.jsx';
 import SearchBar from '../common/SearchBar.jsx';
@@ -337,9 +337,15 @@ export default function Navbar() {
 
                             <div className="my-1 border-t border-neutral-100" />
 
-                            <DropdownLink to="/organizer/dashboard" icon={Trophy}>Organizer Dashboard</DropdownLink>
-                            {role !== 'organizer' && (
-                              <DropdownLink to="/organizer/apply" icon={Plus}>Become an Organizer</DropdownLink>
+                            {/* Only visible if registered as an organizer or admin */}
+                            {(role === 'organizer' || role === 'admin') && (
+                              <DropdownLink to="/organizer/dashboard" icon={Trophy}>Organizer Dashboard</DropdownLink>
+                            )}
+                            {role === 'admin' && (
+                              <DropdownLink to="/admin" icon={Shield}>Admin Console</DropdownLink>
+                            )}
+                            {role === 'user' && (
+                              <DropdownLink to="/organizer/register" icon={Plus}>Become an Organizer</DropdownLink>
                             )}
                           </div>
                           <div className="border-t border-neutral-100 py-1.5">
@@ -481,9 +487,22 @@ export default function Navbar() {
                     <NavLink to="/profile" className={({ isActive }) => `flex items-center gap-2.5 px-5 py-3 text-[14px] font-600 transition-colors ${isActive ? 'text-amber-600 bg-amber-50' : 'text-neutral-700 hover:bg-neutral-50'}`}>
                       <User size={16} className="text-neutral-400" /> Profile
                     </NavLink>
+                    <NavLink to="/my-registrations" className={({ isActive }) => `flex items-center gap-2.5 px-5 py-3 text-[14px] font-600 transition-colors ${isActive ? 'text-amber-600 bg-amber-50' : 'text-neutral-700 hover:bg-neutral-50'}`}>
+                      <Ticket size={16} className="text-neutral-400" /> My Registrations
+                    </NavLink>
                     <NavLink to="/saved" className={({ isActive }) => `flex items-center gap-2.5 px-5 py-3 text-[14px] font-600 transition-colors ${isActive ? 'text-amber-600 bg-amber-50' : 'text-neutral-700 hover:bg-neutral-50'}`}>
                       <Heart size={16} className="text-neutral-400" /> Saved Events
                     </NavLink>
+                    {(role === 'organizer' || role === 'admin') && (
+                      <NavLink to="/organizer/dashboard" className={({ isActive }) => `flex items-center gap-2.5 px-5 py-3 text-[14px] font-600 transition-colors ${isActive ? 'text-amber-600 bg-amber-50' : 'text-neutral-700 hover:bg-neutral-50'}`}>
+                        <Trophy size={16} className="text-amber-500" /> Organizer Dashboard
+                      </NavLink>
+                    )}
+                    {role === 'admin' && (
+                      <NavLink to="/admin" className={({ isActive }) => `flex items-center gap-2.5 px-5 py-3 text-[14px] font-600 transition-colors ${isActive ? 'text-amber-600 bg-amber-50' : 'text-neutral-700 hover:bg-neutral-50'}`}>
+                        <Shield size={16} className="text-red-500" /> Admin Console
+                      </NavLink>
+                    )}
                   </>
                 )}
               </div>
